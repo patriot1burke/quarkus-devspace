@@ -27,7 +27,6 @@ public class DevProxyClient {
     protected int numPollers = 1;
     protected volatile boolean running = true;
     protected volatile boolean shutdown = false;
-    protected String service;
     protected String pollLink;
     protected CountDownLatch workerShutdown;
     protected long pollTimeoutMillis = 1000;

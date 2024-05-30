@@ -39,16 +39,15 @@ public class DevProxyClientBuilder {
         return this;
     }
 
-    public DevProxyClientBuilder service(String name, String host, int port, boolean ssl) {
+    public DevProxyClientBuilder service(String host, int port, boolean ssl) {
         HttpClientOptions options = new HttpClientOptions();
         if (ssl) {
             options.setSsl(true).setTrustAll(true);
         }
-        return service(name, host, port, options);
+        return service(host, port, options);
     }
 
-    public DevProxyClientBuilder service(String name, String host, int port, HttpClientOptions options) {
-        devProxyClient.service = name;
+    public DevProxyClientBuilder service(String host, int port, HttpClientOptions options) {
         devProxyClient.serviceHost = host;
         devProxyClient.servicePort = port;
         options.setDefaultHost(host);
