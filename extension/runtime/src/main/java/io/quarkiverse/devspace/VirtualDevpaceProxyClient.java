@@ -2,11 +2,7 @@ package io.quarkiverse.devspace;
 
 import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Phaser;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.jboss.logging.Logger;
 
@@ -18,211 +14,30 @@ import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.codec.http.LastHttpContent;
-import io.quarkus.devspace.ProxyUtils;
+import io.quarkus.devspace.client.AbstractDevProxyClient;
 import io.quarkus.devspace.server.DevProxyServer;
 import io.quarkus.netty.runtime.virtual.VirtualClientConnection;
 import io.quarkus.netty.runtime.virtual.VirtualResponseHandler;
 import io.quarkus.vertx.http.runtime.QuarkusHttpHeaders;
 import io.quarkus.vertx.http.runtime.VertxHttpRecorder;
 import io.vertx.codegen.annotations.Nullable;
-import io.vertx.core.*;
+import io.vertx.core.AsyncResult;
+import io.vertx.core.Future;
+import io.vertx.core.Handler;
+import io.vertx.core.Promise;
+import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.buffer.impl.BufferImpl;
-import io.vertx.core.http.HttpClient;
-import io.vertx.core.http.HttpClientRequest;
 import io.vertx.core.http.HttpClientResponse;
-import io.vertx.core.http.HttpClosedException;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.streams.ReadStream;
 import io.vertx.core.streams.WriteStream;
 import io.vertx.core.streams.impl.InboundBuffer;
 
-public class VirtualDevpaceProxyClient {
+public class VirtualDevpaceProxyClient extends AbstractDevProxyClient {
     protected static final Logger log = Logger.getLogger(VirtualDevpaceProxyClient.class);
 
     protected Vertx vertx;
-    protected HttpClient proxyClient;
-    protected String whoami;
-    protected String sessionId;
-    protected int numPollers = 1;
-    protected volatile boolean running = true;
-    protected volatile boolean shutdown = false;
-    protected String pollLink;
-    protected Phaser workerShutdown;
-    protected long pollTimeoutMillis = 5000;
-    protected String uri;
-
-    public boolean start() {
-        return start(null, null, null, null);
-    }
-
-    public boolean start(String sessionId, List<String> queries, List<String> paths, List<String> headers) {
-        if (sessionId == null)
-            sessionId = DevProxyServer.GLOBAL_PROXY_SESSION;
-        log.info("Start devspace session: " + sessionId);
-        this.uri = DevProxyServer.CLIENT_API_PATH + "/connect?who=" + whoami + "&session=" + sessionId;
-        if (queries != null) {
-            for (String query : queries)
-                this.uri = this.uri + "&query=" + query;
-        }
-        if (headers != null) {
-            for (String header : headers)
-                this.uri = this.uri + "&header=" + header;
-        }
-        if (paths != null) {
-            for (String path : paths)
-                this.uri = this.uri + "&header=" + path;
-        }
-
-        CountDownLatch latch = new CountDownLatch(1);
-        AtomicBoolean success = new AtomicBoolean();
-        proxyClient.request(HttpMethod.POST, uri, event -> {
-            log.info("******* Connect request start");
-            if (event.failed()) {
-                log.error("Could not connect to startSession", event.cause());
-                latch.countDown();
-                return;
-            }
-            HttpClientRequest request = event.result();
-            log.info("******* Sending Connect request");
-            request.send().onComplete(event1 -> {
-                log.info("******* Connect request onComplete");
-                if (event1.failed()) {
-                    log.error("Could not connect to startSession", event1.cause());
-                    latch.countDown();
-                    return;
-                }
-                HttpClientResponse response = event1.result();
-                if (response.statusCode() == 409) {
-                    response.bodyHandler(body -> {
-                        log.error("Could not connect to session as " + body.toString() + " is using the session");
-                        latch.countDown();
-                    });
-                    return;
-                }
-                if (response.statusCode() != 204) {
-                    response.bodyHandler(body -> {
-                        log.error("Could not connect to startSession " + response.statusCode() + body.toString());
-                        latch.countDown();
-                    });
-                    return;
-                }
-                log.info("******* Connect request succeeded");
-                try {
-                    this.pollLink = response.getHeader(DevProxyServer.POLL_LINK);
-                    workerShutdown = new Phaser(1);
-                    for (int i = 0; i < numPollers; i++) {
-                        workerShutdown.register();
-                        poll();
-                    }
-                    success.set(true);
-                } finally {
-                    latch.countDown();
-                }
-            });
-        });
-        try {
-            latch.await();
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-        if (!success.get()) {
-            log.error("Failed to connect to proxy server");
-            forcedShutdown();
-            return false;
-        }
-        this.sessionId = sessionId;
-        return true;
-    }
-
-    protected void reconnect() {
-        if (!running)
-            return;
-        log.info("reconnect.....");
-        proxyClient.request(HttpMethod.POST, uri, event -> {
-            if (event.failed()) {
-                log.error("Could not reconnect to session", event.cause());
-                return;
-            }
-            HttpClientRequest request = event.result();
-            log.info("Sending reconnect request...");
-            request.send().onComplete(event1 -> {
-                if (event1.failed()) {
-                    log.error("Could not reconnect to session", event1.cause());
-                    return;
-                }
-                HttpClientResponse response = event1.result();
-                if (response.statusCode() == 409) {
-                    response.bodyHandler(body -> {
-                        log.error("Could not reconnect to session as " + body.toString() + " is using the session");
-                    });
-                    return;
-                }
-                if (response.statusCode() != 204) {
-                    response.bodyHandler(body -> {
-                        log.error("Could not reconnect to session" + response.statusCode() + body.toString());
-                    });
-                    return;
-                }
-                log.info("Reconnect succeeded");
-                this.pollLink = response.getHeader(DevProxyServer.POLL_LINK);
-                workerShutdown.register();
-                poll();
-            });
-        });
-    }
-
-    public void forcedShutdown() {
-        shutdown = true;
-        running = false;
-        proxyClient.close();
-    }
-
-    protected void pollFailure(Throwable failure) {
-        if (failure instanceof HttpClosedException) {
-            log.warn("Client poll stopped.  Connection closed by server");
-        } else if (failure instanceof TimeoutException) {
-            log.warn("Poll timeout");
-            poll();
-            return;
-        } else {
-            log.error("Poll failed", failure);
-        }
-        workerOffline();
-    }
-
-    protected void pollConnectFailure(Throwable failure) {
-        log.error("Connect Poll failed", failure);
-        workerOffline();
-    }
-
-    protected void pollFailure(String error) {
-        log.error("Poll failed: " + error);
-        workerOffline();
-    }
-
-    private void workerOffline() {
-        try {
-            workerShutdown.arriveAndDeregister();
-        } catch (Exception ignore) {
-        }
-    }
-
-    protected void poll() {
-        log.info("**** poll() start");
-        if (!running) {
-            return;
-        }
-        proxyClient.request(HttpMethod.POST, pollLink)
-                .onSuccess(request -> {
-                    request.setTimeout(pollTimeoutMillis)
-                            .send()
-                            .onSuccess(this::handlePoll)
-                            .onFailure(this::pollFailure);
-
-                })
-                .onFailure(this::pollConnectFailure);
-    }
 
     private class NettyResponseHandler implements VirtualResponseHandler, ReadStream<Buffer> {
 
@@ -423,30 +238,7 @@ public class VirtualDevpaceProxyClient {
         }
     }
 
-    protected void handlePoll(HttpClientResponse pollResponse) {
-        pollResponse.pause();
-        log.info("------ handlePoll");
-        int proxyStatus = pollResponse.statusCode();
-        if (proxyStatus == 408) {
-            log.info("Poll timeout, redo poll");
-            poll();
-            return;
-        } else if (proxyStatus == 204) {
-            // keepAlive = false sent back
-            log.info("Keepalive = false.  Stop Polling");
-            workerOffline();
-            return;
-        } else if (proxyStatus == 404) {
-            log.info("session was closed, exiting poll");
-            workerOffline();
-            reconnect();
-            return;
-        } else if (proxyStatus != 200) {
-            pollResponse.bodyHandler(body -> {
-                pollFailure(body.toString());
-            });
-            return;
-        }
+    protected void processPoll(HttpClientResponse pollResponse) {
         log.info("Unpack poll request");
         String method = pollResponse.getHeader(DevProxyServer.METHOD_HEADER);
         String uri = pollResponse.getHeader(DevProxyServer.URI_HEADER);
@@ -480,53 +272,5 @@ public class VirtualDevpaceProxyClient {
         log.info("send initial nettyRequest");
         connection.sendMessage(nettyRequest);
         pollResponse.pipeTo(new NettyWriteStream(connection));
-    }
-
-    private void deletePushResponse(String link) {
-        if (link == null) {
-            workerOffline();
-            return;
-        }
-        proxyClient.request(HttpMethod.DELETE, link)
-                .onFailure(event -> workerOffline())
-                .onSuccess(request -> request.send().onComplete(event -> workerOffline()));
-    }
-
-    public void shutdown() {
-        if (shutdown) {
-            return;
-        }
-        try {
-            running = false;
-            // delete session
-            CountDownLatch latch = new CountDownLatch(1);
-            if (sessionId != null) {
-                String uri = DevProxyServer.CLIENT_API_PATH + "/connect?session=" + sessionId;
-                proxyClient.request(HttpMethod.DELETE, uri)
-                        .onFailure(event -> {
-                            log.error("Failed to delete session on shutdown", event);
-                            latch.countDown();
-                        })
-                        .onSuccess(request -> request.send()
-                                .onComplete(event -> {
-                                    if (event.failed()) {
-                                        log.error("Failed to delete session on shutdown", event.cause());
-                                    }
-                                    latch.countDown();
-                                }));
-
-            }
-
-            try {
-                latch.await(1000, TimeUnit.MILLISECONDS);
-                int phase = workerShutdown.arriveAndDeregister();
-                phase = workerShutdown.awaitAdvanceInterruptibly(1, pollTimeoutMillis * 2, TimeUnit.MILLISECONDS);
-            } catch (InterruptedException | TimeoutException ignored) {
-            }
-            ProxyUtils.await(1000, proxyClient.close());
-
-        } finally {
-            shutdown = true;
-        }
     }
 }

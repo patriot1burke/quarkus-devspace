@@ -4,6 +4,7 @@ import java.util.function.Supplier;
 
 import org.jboss.logging.Logger;
 
+import io.quarkus.devspace.client.DevspaceConnectionConfig;
 import io.quarkus.runtime.ShutdownContext;
 import io.quarkus.runtime.annotations.Recorder;
 import io.vertx.core.Vertx;
@@ -14,10 +15,10 @@ public class DevSpaceProxyRecorder {
     private static final Logger log = Logger.getLogger(DevSpaceProxyRecorder.class);
 
     static VirtualDevpaceProxyClient client;
-    public static ExtractedConfig config;
+    public static DevspaceConnectionConfig config;
     static Vertx vertx;
 
-    public void init(Supplier<Vertx> vertx, ShutdownContext shutdown, ExtractedConfig c, boolean delayConnect) {
+    public void init(Supplier<Vertx> vertx, ShutdownContext shutdown, DevspaceConnectionConfig c, boolean delayConnect) {
         config = c;
         DevSpaceProxyRecorder.vertx = vertx.get();
         if (!delayConnect) {
@@ -32,7 +33,7 @@ public class DevSpaceProxyRecorder {
         startSession(config);
     }
 
-    public static void startSession(ExtractedConfig config) {
+    public static void startSession(DevspaceConnectionConfig config) {
         client = new VirtualDevpaceProxyClient();
         HttpClientOptions options = new HttpClientOptions();
         options.setDefaultHost(config.host);
@@ -40,10 +41,10 @@ public class DevSpaceProxyRecorder {
         if (config.ssl) {
             options.setSsl(true).setTrustAll(true);
         }
-        client.proxyClient = vertx.createHttpClient(options);
+        client.setProxyClient(vertx.createHttpClient(options));
         client.vertx = vertx;
-        client.whoami = config.who;
-        client.start(config.session, config.queries, config.paths, config.headers);
+        client.initUri(config.who, config.session, config.queries, config.paths, config.headers);
+        client.start();
     }
 
     public static void closeSession() {

@@ -137,9 +137,8 @@ public class DevProxyServerTestCase {
     @Test
     public void testGlobalSession() throws Exception {
         DevProxyClient client = DevProxyClient.create(vertx)
-                .proxy("localhost", 8082, false)
+                .devspace("http://localhost:8082?who=bill")
                 .service("localhost", 9092, false)
-                .whoami("bill")
                 .build();
         Assertions.assertTrue(client.start());
         try {

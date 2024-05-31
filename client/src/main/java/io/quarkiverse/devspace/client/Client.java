@@ -21,9 +21,8 @@ public class Client {
 
     public boolean start(int localPort, DevspaceConnectionConfig config) throws Exception {
         client = DevProxyClient.create(vertx)
-                .proxy(config.host, config.port, config.ssl)
+                .devspace(config)
                 .service("localhost", localPort, false)
-                .whoami(config.who)
                 .build();
         if (!client.start()) {
             return false;
