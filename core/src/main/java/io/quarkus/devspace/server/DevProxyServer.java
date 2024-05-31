@@ -284,12 +284,6 @@ public class DevProxyServer {
             }
             context.next();
         });
-        // API routes
-        proxyRouter.route(API_PATH + "/cookie/set").method(HttpMethod.GET).handler(this::setCookieApi);
-        proxyRouter.route(API_PATH + "/cookie/get").method(HttpMethod.GET).handler(this::getCookieApi);
-        proxyRouter.route(API_PATH + "/cookie/remove").method(HttpMethod.GET).handler(this::removeCookieApi);
-        proxyRouter.route().handler(this::proxy);
-
         // CLIENT API
         clientApiRouter.route(CLIENT_API_PATH + "/poll/session/:session").method(HttpMethod.POST).handler(this::pollNext);
         clientApiRouter.route(CLIENT_API_PATH + "/connect").method(HttpMethod.POST).handler(this::clientConnect);
@@ -301,6 +295,12 @@ public class DevProxyServer {
                 .method(HttpMethod.DELETE)
                 .handler(this::deletePushResponse);
         clientApiRouter.route(CLIENT_API_PATH + "/*").handler(routingContext -> routingContext.fail(404));
+
+        // API routes
+        proxyRouter.route(API_PATH + "/cookie/set").method(HttpMethod.GET).handler(this::setCookieApi);
+        proxyRouter.route(API_PATH + "/cookie/get").method(HttpMethod.GET).handler(this::getCookieApi);
+        proxyRouter.route(API_PATH + "/cookie/remove").method(HttpMethod.GET).handler(this::removeCookieApi);
+        proxyRouter.route().handler(this::proxy);
 
         // proxy to deployed services
         service = new ServiceProxy(config);

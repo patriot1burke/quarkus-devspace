@@ -8,7 +8,6 @@ import java.util.List;
 import org.jboss.logging.Logger;
 
 import io.quarkiverse.devspace.DevSpaceProxyRecorder;
-import io.quarkiverse.devspace.DevspaceConfig;
 import io.quarkiverse.devspace.ExtractedConfig;
 import io.quarkus.builder.BuildException;
 import io.quarkus.deployment.IsNormal;
@@ -84,6 +83,7 @@ public class DevSpaceProcessor {
             if (needSession && devspace.session == null) {
                 throw new RuntimeException("quarkus.http.devspace uri is missing session parameter");
             }
+            log.info("*********** manual start: " + config.manualStart);
             proxy.init(vertx.getVertx(), shutdown, devspace, config.manualStart);
         }
     }
