@@ -29,7 +29,9 @@ public class DevspaceCommand implements Callable<Integer> {
             new CommandLine(new DevspaceCommand()).usage(System.out);
             return CommandLine.ExitCode.USAGE;
         }
-        client.start(port, config);
+        if (!client.start(port, config)) {
+            System.out.println("Failed to start");
+        }
 
         return 0;
     }
