@@ -297,9 +297,12 @@ public class DevProxyServer {
         clientApiRouter.route(CLIENT_API_PATH + "/*").handler(routingContext -> routingContext.fail(404));
 
         // API routes
+        proxyRouter.route(API_PATH + "/version").method(HttpMethod.GET)
+                .handler((ctx) -> ctx.response().setStatusCode(200).putHeader("Content-Type", "text/plain").end("1.0"));
         proxyRouter.route(API_PATH + "/cookie/set").method(HttpMethod.GET).handler(this::setCookieApi);
         proxyRouter.route(API_PATH + "/cookie/get").method(HttpMethod.GET).handler(this::getCookieApi);
         proxyRouter.route(API_PATH + "/cookie/remove").method(HttpMethod.GET).handler(this::removeCookieApi);
+        clientApiRouter.route(API_PATH + "/*").handler(routingContext -> routingContext.fail(404));
         proxyRouter.route().handler(this::proxy);
 
         // proxy to deployed services

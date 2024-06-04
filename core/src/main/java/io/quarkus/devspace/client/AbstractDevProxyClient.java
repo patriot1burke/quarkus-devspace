@@ -25,7 +25,7 @@ public abstract class AbstractDevProxyClient {
     protected volatile boolean running = true;
     protected String pollLink;
     protected Phaser workerShutdown;
-    protected long pollTimeoutMillis = 1000;
+    protected long pollTimeoutMillis = 3000;
     protected String uri;
     protected boolean connected;
     protected volatile boolean shutdown = false;
@@ -163,7 +163,7 @@ public abstract class AbstractDevProxyClient {
         if (failure instanceof HttpClosedException) {
             log.warn("Client poll stopped.  Connection closed by server");
         } else if (failure instanceof TimeoutException) {
-            log.warn("Poll timeout");
+            log.debug("Poll timeout");
             poll();
             return;
         } else {
@@ -210,7 +210,7 @@ public abstract class AbstractDevProxyClient {
         log.info("------ handlePoll");
         int proxyStatus = pollResponse.statusCode();
         if (proxyStatus == 408) {
-            log.info("Poll timeout, redo poll");
+            log.debug("Poll timeout, redo poll");
             poll();
             return;
         } else if (proxyStatus == 204) {
