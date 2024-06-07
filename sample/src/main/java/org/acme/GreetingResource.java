@@ -15,6 +15,6 @@ public class GreetingResource {
     @GET
     @Produces(MediaType.TEXT_HTML)
     public String hello(@QueryParam("user") @DefaultValue("") String user) {
-        return "<h1>LOCAL " + user + " " + LocalTime.now() + "</h1>";
+        return "<h1>GREETINGS " + user + " " + LocalTime.now() + "</h1>";
     }
 }
