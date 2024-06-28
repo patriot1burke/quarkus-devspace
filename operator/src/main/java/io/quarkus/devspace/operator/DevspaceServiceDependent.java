@@ -54,6 +54,7 @@ public class DevspaceServiceDependent extends CRUDKubernetesDependentResource<Se
                 .endPort()
                 .withSelector(Map.of("run", DevspaceDeploymentDependent.devspaceDeployment(primary)))
                 .withType("NodePort")
+                .withExternalTrafficPolicy("Local")
                 .endSpec().build();
     }
 }

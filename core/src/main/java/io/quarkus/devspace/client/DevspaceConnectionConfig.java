@@ -14,6 +14,9 @@ public class DevspaceConnectionConfig {
     public List<String> queries;
     public String session;
     public String error;
+    public boolean useClientIp;
+    public String clientIp;
+
 
     public static DevspaceConnectionConfig fromUri(String uriString) {
         DevspaceConnectionConfig devspace = new DevspaceConnectionConfig();
@@ -33,7 +36,7 @@ public class DevspaceConnectionConfig {
             for (String pair : uri.getQuery().split("&")) {
                 int idx = pair.indexOf("=");
                 String key = pair.substring(0, idx);
-                String value = pair.substring(idx + 1);
+                String value = idx == -1 ? null : pair.substring(idx + 1);
                 if ("session".equals(key)) {
                     devspace.session = value;
                 } else if ("who".equals(key)) {
@@ -53,6 +56,9 @@ public class DevspaceConnectionConfig {
                         devspace.headers = new ArrayList<>();
                     devspace.headers.add(value);
                     needSession = true;
+                } else if ("clientIp".equals(key)) {
+                    devspace.useClientIp = true;
+                    devspace.clientIp = value;
                 }
             }
         }

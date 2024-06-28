@@ -5,13 +5,15 @@ import io.vertx.ext.web.RoutingContext;
 
 public class HeaderOrCookieSessionMatcher implements RequestSessionMatcher {
     private final String name;
+    private final String value;
 
-    public HeaderOrCookieSessionMatcher(String name) {
+    public HeaderOrCookieSessionMatcher(String name, String value) {
         this.name = name;
+        this.value = value;
     }
 
     @Override
-    public String match(RoutingContext ctx) {
+    public boolean matches(RoutingContext ctx) {
         String sessionId = ctx.request().getHeader(name);
         if (sessionId == null) {
             Cookie cookie = ctx.request().getCookie(name);
@@ -19,6 +21,6 @@ public class HeaderOrCookieSessionMatcher implements RequestSessionMatcher {
                 sessionId = cookie.getValue();
             }
         }
-        return sessionId;
+        return value.equals(sessionId);
     }
 }

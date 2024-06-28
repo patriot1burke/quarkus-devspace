@@ -4,13 +4,15 @@ import io.vertx.ext.web.RoutingContext;
 
 public class QueryParamSessionMatcher implements RequestSessionMatcher {
     private final String name;
+    private final String value;
 
-    public QueryParamSessionMatcher(String name) {
+    public QueryParamSessionMatcher(String name, String value) {
         this.name = name;
+        this.value = value;
     }
 
     @Override
-    public String match(RoutingContext ctx) {
-        return ctx.queryParams().get(name);
+    public boolean matches(RoutingContext ctx) {
+        return value.equals(ctx.queryParams().get(name));
     }
 }

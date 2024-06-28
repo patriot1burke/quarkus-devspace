@@ -60,6 +60,7 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
                             oldSelectors.putAll(service.getSpec().getSelector());
                             DevspaceStatus status = new DevspaceStatus();
                             status.setOldSelectors(oldSelectors);
+                            status.setOldExternalTrafficPolicy(service.getSpec().getExternalTrafficPolicy());
                             devspace.setStatus(status);
                             String proxyDeploymentName = DevspaceDeploymentDependent.devspaceDeployment(devspace);
                             UnaryOperator<Service> edit = (s) -> {
@@ -67,8 +68,8 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
                                 ServiceFluent<ServiceBuilder>.SpecNested<ServiceBuilder> spec = builder.editSpec();
                                 spec.getSelector().clear();
                                 spec.getSelector().put("run", proxyDeploymentName);
+                                spec.withExternalTrafficPolicy("Local");
                                 return spec.endSpec().build();
-
                             };
                             serviceResource.edit(edit);
                             return UpdateControl.updateStatus(devspace);
@@ -100,6 +101,7 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
             return new ServiceBuilder(s)
                     .editSpec()
                     .withSelector(devspace.getStatus().getOldSelectors())
+                    .withExternalTrafficPolicy(devspace.getStatus().getOldExternalTrafficPolicy())
                     .endSpec().build();
 
         };

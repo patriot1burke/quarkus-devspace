@@ -125,7 +125,7 @@ public class DevProxyServer {
         final Deque<Poller> awaitingPollers = new LinkedList<>();
         final Object pollLock = new Object();
 
-        final List<RequestSessionMatcher> matchers = new ArrayList<>();
+        List<RequestSessionMatcher> matchers = new ArrayList<>();
 
         volatile boolean running = true;
         volatile long lastPoll;
@@ -299,6 +299,9 @@ public class DevProxyServer {
         // API routes
         proxyRouter.route(API_PATH + "/version").method(HttpMethod.GET)
                 .handler((ctx) -> ctx.response().setStatusCode(200).putHeader("Content-Type", "text/plain").end("1.0"));
+        proxyRouter.route(API_PATH + "/clientIp").method(HttpMethod.GET)
+                .handler((ctx) -> ctx.response().setStatusCode(200).putHeader("Content-Type", "text/plain")
+                        .end("" + ctx.request().remoteAddress().hostAddress()));
         proxyRouter.route(API_PATH + "/cookie/set").method(HttpMethod.GET).handler(this::setCookieApi);
         proxyRouter.route(API_PATH + "/cookie/get").method(HttpMethod.GET).handler(this::getCookieApi);
         proxyRouter.route(API_PATH + "/cookie/remove").method(HttpMethod.GET).handler(this::removeCookieApi);
@@ -398,24 +401,22 @@ public class DevProxyServer {
 
     public void proxy(RoutingContext ctx) {
         log.infov("*** entered proxy {0} {1}", ctx.request().method().toString(), ctx.request().uri());
-        String sessionId = null;
 
+        ProxySession found = null;
         find: for (ProxySession session : service.sessions.values()) {
             for (RequestSessionMatcher matcher : session.matchers) {
-                sessionId = matcher.match(ctx);
-                if (sessionId != null)
+                if (matcher.matches(ctx)) {
+                    found = session;
                     break find;
+                }
             }
         }
-        if (sessionId == null) {
-            sessionId = GLOBAL_PROXY_SESSION;
+        if (found == null) {
+            found = service.sessions.get(GLOBAL_PROXY_SESSION);
         }
 
-        log.infov("Looking for session {0}", sessionId);
-
-        ProxySession session = service.sessions.get(sessionId);
-        if (session != null && session.running) {
-            session.handleProxiedRequest(ctx);
+        if (found != null && found.running) {
+            found.handleProxiedRequest(ctx);
         } else {
             service.proxy.handle(ctx.request());
         }
@@ -426,7 +427,7 @@ public class DevProxyServer {
 
         log.info("Connect: " + ctx.request().absoluteURI());
         List<String> sessionQueryParam = ctx.queryParam("session");
-        String sessionId = GLOBAL_PROXY_SESSION;
+        String sessionId = null;
         if (!sessionQueryParam.isEmpty()) {
             sessionId = sessionQueryParam.get(0);
         }
@@ -441,6 +442,41 @@ public class DevProxyServer {
                     sessionId);
             return;
         }
+        List<RequestSessionMatcher> matchers = new ArrayList<>();
+        for (Map.Entry<String, String> entry : ctx.queryParams()) {
+            String key = entry.getKey();
+            String value = entry.getValue();
+            if ("query".equals(key)) {
+                if (sessionId == null) {
+                    ctx.response().setStatusCode(400).putHeader("Content-Type", "text/plain").end("Must declare session");
+                    return;
+                }
+                matchers.add(new QueryParamSessionMatcher(value, sessionId));
+            } else if ("path".equals(key)) {
+                if (sessionId == null) {
+                    ctx.response().setStatusCode(400).putHeader("Content-Type", "text/plain").end("Must declare session");
+                    return;
+                }
+                matchers.add(new PathParamSessionMatcher(value));
+            } else if ("header".equals(key)) {
+                if (sessionId == null) {
+                    ctx.response().setStatusCode(400).putHeader("Content-Type", "text/plain").end("Must declare session");
+                    return;
+                }
+                matchers.add(new HeaderOrCookieSessionMatcher(value, sessionId));
+            } else if ("clientIp".equals(key)) {
+                String ip = value;
+                if (ip == null) {
+                    ip = ctx.request().remoteAddress().hostAddress();
+                }
+                if (sessionId == null) {
+                    sessionId = ip;
+                }
+            }
+        }
+        if (sessionId == null) {
+            sessionId = GLOBAL_PROXY_SESSION;
+        }
         synchronized (this) {
             ProxySession session = service.sessions.get(sessionId);
             if (session != null) {
@@ -452,18 +488,10 @@ public class DevProxyServer {
                 }
             } else {
                 ProxySession newSession = new ProxySession(service, sessionId, who);
-                if (sessionId != GLOBAL_PROXY_SESSION) {
-                    ctx.queryParams().forEach((key, value) -> {
-                        if ("query".equals(key)) {
-                            newSession.matchers.add(new QueryParamSessionMatcher(value));
-                        } else if ("path".equals(key)) {
-                            newSession.matchers.add(new PathParamSessionMatcher(value));
-                        } else if ("header".equals(key)) {
-                            newSession.matchers.add(new PathParamSessionMatcher(value));
-                        }
-                    });
-                    newSession.matchers.add(new HeaderOrCookieSessionMatcher(SESSION_HEADER));
+                if (matchers.isEmpty()) {
+                    matchers.add(new HeaderOrCookieSessionMatcher(SESSION_HEADER, sessionId));
                 }
+                newSession.matchers = matchers;
                 service.sessions.put(sessionId, newSession);
                 ctx.response().setStatusCode(204).putHeader(POLL_LINK, CLIENT_API_PATH + "/poll/session/" + sessionId)
                         .end();
