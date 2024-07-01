@@ -1,4 +1,4 @@
-# Quarkus Devspace
+# Quarkus Devspace Tool
 
 Many organizations have a test or development cluster that mirrors
 production so that new versions of various microservices, 
