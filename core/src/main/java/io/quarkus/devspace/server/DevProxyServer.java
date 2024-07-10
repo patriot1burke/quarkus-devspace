@@ -446,13 +446,20 @@ public class DevProxyServer {
         for (Map.Entry<String, String> entry : ctx.queryParams()) {
             String key = entry.getKey();
             String value = entry.getValue();
-            log.info("Query Param: " + key + ":" + "value");
+            log.info("Query Param: " + key + ":" + value);
             if ("query".equals(key)) {
                 if (sessionId == null) {
                     ctx.response().setStatusCode(400).putHeader("Content-Type", "text/plain").end("Must declare session");
                     return;
                 }
-                matchers.add(new QueryParamSessionMatcher(value, sessionId));
+                String query = value;
+                String qvalue = sessionId;
+                int idx = value.indexOf('=');
+                if (idx > 0) {
+                    query = value.substring(0, idx);
+                    qvalue = value.substring(idx + 1);
+                }
+                matchers.add(new QueryParamSessionMatcher(query, qvalue));
             } else if ("path".equals(key)) {
                 if (sessionId == null) {
                     ctx.response().setStatusCode(400).putHeader("Content-Type", "text/plain").end("Must declare session");
@@ -465,7 +472,14 @@ public class DevProxyServer {
                     ctx.response().setStatusCode(400).putHeader("Content-Type", "text/plain").end("Must declare session");
                     return;
                 }
-                matchers.add(new HeaderOrCookieSessionMatcher(value, sessionId));
+                String header = value;
+                int idx = value.indexOf('=');
+                String hvalue = sessionId;
+                if (idx > 0) {
+                    header = value.substring(0, idx);
+                    hvalue = value.substring(idx + 1);
+                }
+                matchers.add(new HeaderOrCookieSessionMatcher(header, hvalue));
             } else if ("clientIp".equals(key)) {
                 String ip = value;
                 if (ip == null) {

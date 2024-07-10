@@ -33,7 +33,7 @@ public class DevSpaceSessionProxyTest {
     public static final int CLIENT_API_PORT = 9093;
 
     private static final String APP_PROPS = "" +
-            "quarkus.devspace.uri=http://localhost:9093?who=bill&session=john&path=/users/john&query=user\n"
+            "quarkus.devspace.uri=http://localhost:9093?who=bill&session=john&path=/users/john&query=user=john\n"
             + "quarkus.devspace.manual-start=true\n";
 
     @RegisterExtension
