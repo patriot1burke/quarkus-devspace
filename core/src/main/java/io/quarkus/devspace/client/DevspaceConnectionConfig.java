@@ -17,7 +17,6 @@ public class DevspaceConnectionConfig {
     public boolean useClientIp;
     public String clientIp;
 
-
     public static DevspaceConnectionConfig fromUri(String uriString) {
         DevspaceConnectionConfig devspace = new DevspaceConnectionConfig();
         URI uri = null;

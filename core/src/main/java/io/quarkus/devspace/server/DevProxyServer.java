@@ -446,6 +446,7 @@ public class DevProxyServer {
         for (Map.Entry<String, String> entry : ctx.queryParams()) {
             String key = entry.getKey();
             String value = entry.getValue();
+            log.info("Query Param: " + key + ":" + "value");
             if ("query".equals(key)) {
                 if (sessionId == null) {
                     ctx.response().setStatusCode(400).putHeader("Content-Type", "text/plain").end("Must declare session");
@@ -457,6 +458,7 @@ public class DevProxyServer {
                     ctx.response().setStatusCode(400).putHeader("Content-Type", "text/plain").end("Must declare session");
                     return;
                 }
+                log.info("********** Adding PathParam " + value);
                 matchers.add(new PathParamSessionMatcher(value));
             } else if ("header".equals(key)) {
                 if (sessionId == null) {
@@ -476,6 +478,8 @@ public class DevProxyServer {
         }
         if (sessionId == null) {
             sessionId = GLOBAL_PROXY_SESSION;
+        } else {
+            matchers.add(new HeaderOrCookieSessionMatcher(SESSION_HEADER, sessionId));
         }
         synchronized (this) {
             ProxySession session = service.sessions.get(sessionId);

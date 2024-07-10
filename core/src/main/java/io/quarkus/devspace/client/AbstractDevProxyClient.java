@@ -50,7 +50,7 @@ public abstract class AbstractDevProxyClient {
         }
         if (paths != null) {
             for (String path : paths)
-                this.uri = this.uri + "&header=" + path;
+                this.uri = this.uri + "&path=" + path;
         }
     }
 
