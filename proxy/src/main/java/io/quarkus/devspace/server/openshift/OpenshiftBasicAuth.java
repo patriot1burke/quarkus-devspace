@@ -1,6 +1,6 @@
 package io.quarkus.devspace.server.openshift;
 
-import java.util.Base64;
+import java.net.URI;
 
 import io.quarkus.devspace.server.auth.ProxySessionAuth;
 import io.vertx.core.Vertx;
@@ -13,17 +13,18 @@ import io.vertx.ext.web.RoutingContext;
 public class OpenshiftBasicAuth implements ProxySessionAuth {
     final HttpClient client;
 
-    public OpenshiftBasicAuth(Vertx vertx) {
+    public OpenshiftBasicAuth(Vertx vertx, String oauthUrl) {
+        URI uri = URI.create(oauthUrl);
         HttpClientOptions options = new HttpClientOptions();
-        options.setSsl(true).setTrustAll(true);
-        options.setDefaultHost("oauth-openshift.openshift-authentication.svc.cluster.local");
-        options.setDefaultPort(443);
+        boolean https = false;
+        if (uri.getScheme().equals("https")) {
+            https = true;
+            options.setSsl(true).setTrustAll(true);
+        }
+        options.setDefaultHost(uri.getHost());
+        int port = uri.getPort() == -1 ? (https ? 443 : 80) : uri.getPort();
+        options.setDefaultPort(port);
         this.client = vertx.createHttpClient(options);
-    }
-
-    private static final String getBasicAuthenticationHeader(String username, String password) {
-        String valueToEncode = username + ":" + password;
-        return "Basic " + Base64.getEncoder().encodeToString(valueToEncode.getBytes());
     }
 
     @Override

@@ -41,6 +41,9 @@ public class DevSpaceProxyRecorder {
         if (config.ssl) {
             options.setSsl(true).setTrustAll(true);
         }
+        if (config.user != null) {
+            client.setBasicAuth(config.user, config.passwd);
+        }
         client.setProxyClient(vertx.createHttpClient(options));
         client.vertx = vertx;
         client.initUri(config.who, config.session, config.queries, config.paths, config.headers);

@@ -16,6 +16,8 @@ public class DevspaceConnectionConfig {
     public String error;
     public boolean useClientIp;
     public String clientIp;
+    public String user;
+    public String passwd;
 
     public static DevspaceConnectionConfig fromUri(String uriString) {
         DevspaceConnectionConfig devspace = new DevspaceConnectionConfig();

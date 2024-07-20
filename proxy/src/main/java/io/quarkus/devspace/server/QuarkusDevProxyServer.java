@@ -40,13 +40,17 @@ public class QuarkusDevProxyServer {
     @ConfigProperty(name = "auth.type", defaultValue = "NoAuth")
     protected String authType;
 
+    @Inject
+    @ConfigProperty(name = "oauth.url", defaultValue = "oauth-openshift.openshift-authentication.svc.cluster.local")
+    protected String oauthUrl;
+
     protected DevProxyServer proxyServer;
     private HttpServer clientApi;
 
     public void start(@Observes StartupEvent start, Vertx vertx, Router proxyRouter) {
         proxyServer = new DevProxyServer();
         if ("openshift-basic-auth".equals(authType)) {
-            proxyServer.setAuth(new OpenshiftBasicAuth(vertx));
+            proxyServer.setAuth(new OpenshiftBasicAuth(vertx, oauthUrl));
         }
         ServiceConfig config = new ServiceConfig(serviceName, serviceHost, servicePort, serviceSsl);
         clientApi = vertx.createHttpServer();

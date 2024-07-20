@@ -42,6 +42,7 @@ public class GreetingResource {
     @GET
     @Produces(MediaType.TEXT_HTML)
     public String hello(@QueryParam("user") @DefaultValue("developer") String user) {
+        /*
         ClientBuilderImpl impl = (ClientBuilderImpl)ClientBuilder.newBuilder();
         impl.trustAll(true).followRedirects(false);
         Client client = impl.build();
@@ -56,6 +57,8 @@ public class GreetingResource {
         } else {
             return "Failed to authenticate";
         }
+
+         */
                 /*
         WellKnown wk = QuarkusRestClientBuilder.newBuilder()
                 .baseUri(URI.create("https://openshift.default.svc"))
@@ -65,6 +68,6 @@ public class GreetingResource {
 
                  */
 
-        //return "<h1>LOCAL " + user + " " + LocalTime.now() + "</h1>";
+        return "<h1>LOCAL " + user + " " + LocalTime.now() + "</h1>";
     }
 }

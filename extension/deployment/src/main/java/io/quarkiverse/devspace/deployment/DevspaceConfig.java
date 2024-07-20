@@ -32,6 +32,14 @@ public class DevspaceConfig {
     public Optional<String> uri;
 
     /**
+     * Credentials for creating a connection.
+     *
+     * If basic auth, use "username:password" for this value
+     */
+    @ConfigItem
+    public Optional<String> credentials;
+
+    /**
      * If true, quarkus will not connect to devspace on boot. Connection would have
      * to be done manually from the recorder method.
      *
@@ -39,4 +47,5 @@ public class DevspaceConfig {
      */
     @ConfigItem(defaultValue = "false")
     public boolean manualStart;
+
 }

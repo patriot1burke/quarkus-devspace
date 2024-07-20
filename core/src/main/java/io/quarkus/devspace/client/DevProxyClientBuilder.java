@@ -48,6 +48,11 @@ public class DevProxyClientBuilder {
         return this;
     }
 
+    public DevProxyClientBuilder basicAuth(String user, String password) {
+        devProxyClient.setBasicAuth(user, password);
+        return this;
+    }
+
     public DevProxyClient build() {
         HttpClientOptions options = new HttpClientOptions();
         options.setDefaultHost(config.host);

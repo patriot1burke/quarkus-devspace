@@ -1,5 +1,6 @@
 package io.quarkus.devspace.client;
 
+import java.util.Base64;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Phaser;
@@ -31,9 +32,14 @@ public abstract class AbstractDevProxyClient {
     protected boolean connected;
     protected volatile boolean shutdown = false;
     protected String tokenHeader = null;
+    protected String basicAuthHeader;
 
     public void setProxyClient(HttpClient proxyClient) {
         this.proxyClient = proxyClient;
+    }
+
+    public void setBasicAuth(String username, String password) {
+        this.basicAuthHeader = getBasicAuthenticationHeader(username, password);
     }
 
     public void initUri(String whoami, String sessionId, List<String> queries, List<String> paths, List<String> headers) {
@@ -56,6 +62,11 @@ public abstract class AbstractDevProxyClient {
         }
     }
 
+    private static final String getBasicAuthenticationHeader(String username, String password) {
+        String valueToEncode = username + ":" + password;
+        return "Basic " + Base64.getEncoder().encodeToString(valueToEncode.getBytes());
+    }
+
     public boolean start() {
         CountDownLatch latch = new CountDownLatch(1);
         AtomicBoolean success = new AtomicBoolean();
@@ -67,6 +78,9 @@ public abstract class AbstractDevProxyClient {
                 return;
             }
             HttpClientRequest request = event.result();
+            if (basicAuthHeader != null) {
+                request.putHeader("Authorization", basicAuthHeader);
+            }
             log.info("******* Sending Connect request");
             request.send().onComplete(event1 -> {
                 log.info("******* Connect request onComplete");
