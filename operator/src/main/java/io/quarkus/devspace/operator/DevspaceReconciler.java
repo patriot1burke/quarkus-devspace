@@ -47,7 +47,6 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
     @Override
     public UpdateControl<Devspace> reconcile(Devspace devspace, Context<Devspace> context) {
         final var name = devspace.getMetadata().getName();
-        log.infov("reconcile {0}", name);
         // retrieve the workflow reconciliation result and re-schedule if we have dependents that are not yet ready
         return context.managedDependentResourceContext().getWorkflowReconcileResult()
                 .map(wrs -> {
@@ -68,7 +67,9 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
                                 ServiceFluent<ServiceBuilder>.SpecNested<ServiceBuilder> spec = builder.editSpec();
                                 spec.getSelector().clear();
                                 spec.getSelector().put("run", proxyDeploymentName);
-                                spec.withExternalTrafficPolicy("Local");
+                                // Setting externalTrafficPolicy to Local is for getting clientIp address
+                                // when using NodePort.  If service is not NodePort then you can't use this
+                                // spec.withExternalTrafficPolicy("Local");
                                 return spec.endSpec().build();
                             };
                             serviceResource.edit(edit);

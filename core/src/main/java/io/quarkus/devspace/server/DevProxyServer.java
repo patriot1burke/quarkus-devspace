@@ -1,10 +1,6 @@
 package io.quarkus.devspace.server;
 
-import java.util.ArrayList;
-import java.util.Deque;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -13,6 +9,8 @@ import org.jboss.logging.Logger;
 
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.quarkus.devspace.ProxyUtils;
+import io.quarkus.devspace.server.auth.NoAuth;
+import io.quarkus.devspace.server.auth.ProxySessionAuth;
 import io.vertx.core.MultiMap;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
@@ -121,9 +119,11 @@ public class DevProxyServer {
         final long timerId;
         final String sessionId;
         final String who;
+        final String token = UUID.randomUUID().toString();
         final Deque<RoutingContext> awaiting = new LinkedList<>();
         final Deque<Poller> awaitingPollers = new LinkedList<>();
         final Object pollLock = new Object();
+        public final Map context = new HashMap();
 
         List<RequestSessionMatcher> matchers = new ArrayList<>();
 
@@ -155,6 +155,29 @@ public class DevProxyServer {
             String requestId = Long.toString(this.requestId.incrementAndGet());
             responsePending.put(requestId, ctx);
             return requestId;
+        }
+
+        public String getToken() {
+            return token;
+        }
+
+        public boolean validateToken(RoutingContext ctx) {
+            String header = ctx.request().getHeader("Authenticate");
+            if (header == null) {
+                ctx.response().setStatusCode(401).end();
+                return false;
+            }
+            int idx = header.indexOf("Bearer");
+            if (idx == -1) {
+                ctx.response().setStatusCode(401).end();
+                return false;
+            }
+            String token = header.substring(idx + "Bearer".length()).trim();
+            if (!this.token.equals(token)) {
+                ctx.response().setStatusCode(401).end();
+                return false;
+            }
+            return true;
         }
 
         RoutingContext dequeueResponse(String requestId) {
@@ -271,6 +294,11 @@ public class DevProxyServer {
     protected static final Logger log = Logger.getLogger(DevProxyServer.class);
     protected ServiceProxy service;
     protected Vertx vertx;
+    protected ProxySessionAuth auth = new NoAuth();
+
+    public void setAuth(ProxySessionAuth auth) {
+        this.auth = auth;
+    }
 
     public void init(Vertx vertx, Router proxyRouter, Router clientApiRouter, ServiceConfig config) {
         this.vertx = vertx;
@@ -446,7 +474,6 @@ public class DevProxyServer {
         for (Map.Entry<String, String> entry : ctx.queryParams()) {
             String key = entry.getKey();
             String value = entry.getValue();
-            log.info("Query Param: " + key + ":" + value);
             if ("query".equals(key)) {
                 if (sessionId == null) {
                     ctx.response().setStatusCode(400).putHeader("Content-Type", "text/plain").end("Must declare session");
@@ -502,24 +529,35 @@ public class DevProxyServer {
                     log.errorv("Failed Client Connect for {0} to service {1} and session {2}: Existing connection {3}", who,
                             service.config.getName(), sessionId, session.who);
                     ctx.response().setStatusCode(409).putHeader("Content-Type", "text/plain").end(session.who);
-
+                    return;
+                }
+                if (session.validateToken(ctx)) {
+                    ctx.response().setStatusCode(204).putHeader(POLL_LINK, CLIENT_API_PATH + "/poll/session/" + sessionId)
+                            .end();
                 }
             } else {
-                ProxySession newSession = new ProxySession(service, sessionId, who);
-                if (matchers.isEmpty()) {
-                    matchers.add(new HeaderOrCookieSessionMatcher(SESSION_HEADER, sessionId));
-                }
-                newSession.matchers = matchers;
-                service.sessions.put(sessionId, newSession);
-                ctx.response().setStatusCode(204).putHeader(POLL_LINK, CLIENT_API_PATH + "/poll/session/" + sessionId)
-                        .end();
+                String finalSessionId = sessionId;
+                String finalWho = who;
+                auth.authenticate(ctx, () -> {
+                    ProxySession newSession = new ProxySession(service, finalSessionId, finalWho);
+                    if (matchers.isEmpty()) {
+                        matchers.add(new HeaderOrCookieSessionMatcher(SESSION_HEADER, finalSessionId));
+                    }
+                    newSession.matchers = matchers;
+                    service.sessions.put(finalSessionId, newSession);
+
+                    auth.propagateToken(ctx, newSession);
+                    ctx.response().setStatusCode(204)
+                            .putHeader(POLL_LINK, CLIENT_API_PATH + "/poll/session/" + finalSessionId)
+                            .end();
+                });
+
             }
         }
     }
 
     public void deleteClientConnection(RoutingContext ctx) {
         // TODO: add security 401 protocol
-
         List<String> sessionQueryParam = ctx.queryParam("session");
         String sessionId = GLOBAL_PROXY_SESSION;
         if (!sessionQueryParam.isEmpty()) {
@@ -527,6 +565,8 @@ public class DevProxyServer {
         }
         ProxySession session = service.sessions.get(sessionId);
         if (session != null) {
+            if (!auth.authorized(ctx, session))
+                return;
             log.infov("Shutdown session {0}", sessionId);
             session.shutdown();
             ctx.response().setStatusCode(204).end();
@@ -547,6 +587,8 @@ public class DevProxyServer {
             DevProxyServer.error(ctx, 404, "Session not found for service " + service.config.getName());
             return;
         }
+        if (!auth.authorized(ctx, session))
+            return;
         RoutingContext proxiedCtx = session.dequeueResponse(requestId);
         if (proxiedCtx == null) {
             log.error("Push response could not request " + requestId + " for service " + service.config.getName() + " session "
@@ -594,6 +636,8 @@ public class DevProxyServer {
             DevProxyServer.error(ctx, 404, "Session not found for service " + service.config.getName());
             return;
         }
+        if (!auth.authorized(ctx, session))
+            return;
         RoutingContext proxiedCtx = session.dequeueResponse(requestId);
         if (proxiedCtx == null) {
             log.error("Delete push response could not find request " + requestId + " for service " + service.config.getName()
@@ -615,6 +659,8 @@ public class DevProxyServer {
             DevProxyServer.error(ctx, 404, "Session not found for service " + service.config.getName());
             return;
         }
+        if (!auth.authorized(ctx, session))
+            return;
         session.poll(ctx);
     }
 }

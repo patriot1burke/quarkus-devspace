@@ -2,6 +2,9 @@ package io.quarkus.devspace.operator;
 
 import java.util.Map;
 
+import jakarta.inject.Inject;
+
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 import io.fabric8.kubernetes.api.model.apps.Deployment;
@@ -16,8 +19,9 @@ public class DevspaceDeploymentDependent extends CRUDKubernetesDependentResource
         super(Deployment.class);
     }
 
-    //@ConfigProperty(name="quarkus.application.version")
-    String quarkusVersion = "999-SNAPSHOT";
+    @Inject
+    @ConfigProperty(name = "quarkus.devspace.proxy.image", defaultValue = "io.quarkus/quarkus-devspace-proxy:latest")
+    String quarkusProxyImage;
 
     public static String devspaceDeployment(Devspace primary) {
         return primary.getMetadata().getName() + "-proxy";
@@ -25,7 +29,6 @@ public class DevspaceDeploymentDependent extends CRUDKubernetesDependentResource
 
     @Override
     protected Deployment desired(Devspace primary, Context<Devspace> context) {
-        log.info("enter desired");
         String serviceName = primary.getMetadata().getName();
         String name = devspaceDeployment(primary);
 
@@ -44,8 +47,8 @@ public class DevspaceDeploymentDependent extends CRUDKubernetesDependentResource
                 .addNewEnv().withName("SERVICE_PORT").withValue("80").endEnv()
                 .addNewEnv().withName("SERVICE_SSL").withValue("false").endEnv()
                 .addNewEnv().withName("CLIENT_API_PORT").withValue("8081").endEnv()
-                .withImage("docker.io/io.quarkus/quarkus-devspace-proxy:" + quarkusVersion)
-                .withImagePullPolicy("IfNotPresent")
+                .withImage(quarkusProxyImage)
+                .withImagePullPolicy("Always")
                 .withName(name)
                 .addNewPort().withName("proxy-http").withContainerPort(8080).withProtocol("TCP").endPort()
                 .addNewPort().withName("devspace-http").withContainerPort(8081).withProtocol("TCP").endPort()

@@ -131,6 +131,7 @@ public class VirtualDevpaceProxyClient extends AbstractDevProxyClient {
                         })
                         .onSuccess(pushRequest -> {
                             log.info("NettyResponseHandler connect accepted for pushResponse");
+                            setToken(pushRequest);
                             pushRequest.setTimeout(pollTimeoutMillis);
                             pushRequest.putHeader(DevProxyServer.STATUS_CODE_HEADER, Integer.toString(res.status().code()));
 

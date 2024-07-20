@@ -89,6 +89,7 @@ public class DevProxyClient extends AbstractDevProxyClient {
                     workerOffline();
                 })
                 .onSuccess(pushRequest -> {
+                    setToken(pushRequest);
                     pushRequest.setTimeout(pollTimeoutMillis);
                     pushRequest.putHeader(DevProxyServer.STATUS_CODE_HEADER, Integer.toString(serviceResponse.statusCode()));
                     serviceResponse.headers()

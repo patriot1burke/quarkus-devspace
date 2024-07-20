@@ -6,6 +6,7 @@ import jakarta.inject.Inject;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
+import io.quarkus.devspace.server.openshift.OpenshiftBasicAuth;
 import io.quarkus.runtime.Shutdown;
 import io.quarkus.runtime.StartupEvent;
 import io.vertx.core.Vertx;
@@ -35,11 +36,18 @@ public class QuarkusDevProxyServer {
     @ConfigProperty(name = "client.api.port")
     protected int clientApiPort;
 
+    @Inject
+    @ConfigProperty(name = "auth.type", defaultValue = "NoAuth")
+    protected String authType;
+
     protected DevProxyServer proxyServer;
     private HttpServer clientApi;
 
     public void start(@Observes StartupEvent start, Vertx vertx, Router proxyRouter) {
         proxyServer = new DevProxyServer();
+        if ("openshift-basic-auth".equals(authType)) {
+            proxyServer.setAuth(new OpenshiftBasicAuth(vertx));
+        }
         ServiceConfig config = new ServiceConfig(serviceName, serviceHost, servicePort, serviceSsl);
         clientApi = vertx.createHttpServer();
         Router clientApiRouter = Router.router(vertx);

@@ -11,6 +11,7 @@ import org.jboss.logging.Logger;
 
 import io.quarkus.devspace.ProxyUtils;
 import io.quarkus.devspace.server.DevProxyServer;
+import io.quarkus.devspace.server.auth.ProxySessionAuth;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientRequest;
 import io.vertx.core.http.HttpClientResponse;
@@ -29,6 +30,7 @@ public abstract class AbstractDevProxyClient {
     protected String uri;
     protected boolean connected;
     protected volatile boolean shutdown = false;
+    protected String tokenHeader = null;
 
     public void setProxyClient(HttpClient proxyClient) {
         this.proxyClient = proxyClient;
@@ -91,6 +93,7 @@ public abstract class AbstractDevProxyClient {
                 log.info("******* Connect request succeeded");
                 try {
                     this.pollLink = response.getHeader(DevProxyServer.POLL_LINK);
+                    this.tokenHeader = response.getHeader(ProxySessionAuth.BEARER_TOKEN_HEADER);
                     workerShutdown = new Phaser(1);
                     for (int i = 0; i < numPollers; i++) {
                         workerShutdown.register();
@@ -126,6 +129,7 @@ public abstract class AbstractDevProxyClient {
                 return;
             }
             HttpClientRequest request = event.result();
+            setToken(request);
             log.info("Sending reconnect request...");
             request.send().onComplete(event1 -> {
                 if (event1.failed()) {
@@ -191,6 +195,7 @@ public abstract class AbstractDevProxyClient {
         }
         proxyClient.request(HttpMethod.POST, pollLink)
                 .onSuccess(request -> {
+                    setToken(request);
                     request.setTimeout(pollTimeoutMillis)
                             .send()
                             .onSuccess(this::handlePoll)
@@ -198,6 +203,12 @@ public abstract class AbstractDevProxyClient {
 
                 })
                 .onFailure(this::pollConnectFailure);
+    }
+
+    protected void setToken(HttpClientRequest request) {
+        if (tokenHeader != null) {
+            request.putHeader("Authorization", tokenHeader);
+        }
     }
 
     protected void pollFailure(String error) {
