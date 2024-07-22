@@ -42,6 +42,14 @@ public abstract class AbstractDevProxyClient {
         this.basicAuthHeader = getBasicAuthenticationHeader(username, password);
     }
 
+    public String getTokenHeader() {
+        return tokenHeader;
+    }
+
+    public void setTokenHeader(String tokenHeader) {
+        this.tokenHeader = tokenHeader;
+    }
+
     public void initUri(String whoami, String sessionId, List<String> queries, List<String> paths, List<String> headers) {
         if (sessionId == null)
             sessionId = DevProxyServer.GLOBAL_PROXY_SESSION;

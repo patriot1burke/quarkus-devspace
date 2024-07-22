@@ -162,18 +162,21 @@ public class DevProxyServer {
         }
 
         public boolean validateToken(RoutingContext ctx) {
-            String header = ctx.request().getHeader("Authenticate");
+            String header = ctx.request().getHeader("Authorization");
             if (header == null) {
+                log.error("Authorization failed: no Authorization header");
                 ctx.response().setStatusCode(401).end();
                 return false;
             }
             int idx = header.indexOf("Bearer");
             if (idx == -1) {
+                log.error("Authorization failed: bad Authorization header");
                 ctx.response().setStatusCode(401).end();
                 return false;
             }
             String token = header.substring(idx + "Bearer".length()).trim();
             if (!this.token.equals(token)) {
+                log.error("Authorization failed: bad session token");
                 ctx.response().setStatusCode(401).end();
                 return false;
             }
@@ -531,7 +534,7 @@ public class DevProxyServer {
                     ctx.response().setStatusCode(409).putHeader("Content-Type", "text/plain").end(session.who);
                     return;
                 }
-                if (session.validateToken(ctx)) {
+                if (auth.authorized(ctx, session)) {
                     ctx.response().setStatusCode(204).putHeader(POLL_LINK, CLIENT_API_PATH + "/poll/session/" + sessionId)
                             .end();
                 }
