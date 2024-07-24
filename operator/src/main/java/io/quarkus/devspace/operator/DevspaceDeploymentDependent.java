@@ -4,11 +4,14 @@ import java.util.Map;
 
 import jakarta.inject.Inject;
 
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
+import io.fabric8.kubernetes.api.model.KubernetesResourceList;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.fabric8.kubernetes.api.model.apps.DeploymentBuilder;
+import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.dsl.MixedOperation;
+import io.fabric8.kubernetes.client.dsl.Resource;
 import io.javaoperatorsdk.operator.api.reconciler.Context;
 import io.javaoperatorsdk.operator.processing.dependent.kubernetes.CRUDKubernetesDependentResource;
 
@@ -20,8 +23,7 @@ public class DevspaceDeploymentDependent extends CRUDKubernetesDependentResource
     }
 
     @Inject
-    @ConfigProperty(name = "quarkus.devspace.proxy.image", defaultValue = "io.quarkus/quarkus-devspace-proxy:latest")
-    String quarkusProxyImage;
+    KubernetesClient client;
 
     public static String devspaceDeployment(Devspace primary) {
         return primary.getMetadata().getName() + "-proxy";
@@ -31,6 +33,22 @@ public class DevspaceDeploymentDependent extends CRUDKubernetesDependentResource
     protected Deployment desired(Devspace primary, Context<Devspace> context) {
         String serviceName = primary.getMetadata().getName();
         String name = devspaceDeployment(primary);
+        MixedOperation<DevspaceConfig, KubernetesResourceList<DevspaceConfig>, Resource<DevspaceConfig>> configs = client
+                .resources(DevspaceConfig.class);
+        String configName = "global";
+        if (primary.getSpec() != null && primary.getSpec().getConfig() != null) {
+            configName = primary.getSpec().getConfig();
+        }
+        DevspaceConfig config = configs.inNamespace(primary.getMetadata().getNamespace()).withName(configName).get();
+        String image = "io.quarkus/quarkus-devspace-proxy:latest";
+        String imagePullPolicy = "Always";
+        if (config != null) {
+            if (config.getSpec() != null && config.getSpec().getProxy() != null) {
+                image = config.getSpec().getProxy().getImage() == null ? image : config.getSpec().getProxy().getImage();
+                imagePullPolicy = config.getSpec().getProxy().getImagePullPolicy() == null ? imagePullPolicy
+                        : config.getSpec().getProxy().getImagePullPolicy();
+            }
+        }
 
         return new DeploymentBuilder()
                 .withMetadata(DevspaceReconciler.createMetadata(primary, name))
@@ -47,8 +65,8 @@ public class DevspaceDeploymentDependent extends CRUDKubernetesDependentResource
                 .addNewEnv().withName("SERVICE_PORT").withValue("80").endEnv()
                 .addNewEnv().withName("SERVICE_SSL").withValue("false").endEnv()
                 .addNewEnv().withName("CLIENT_API_PORT").withValue("8081").endEnv()
-                .withImage(quarkusProxyImage)
-                .withImagePullPolicy("Always")
+                .withImage(image)
+                .withImagePullPolicy(imagePullPolicy)
                 .withName(name)
                 .addNewPort().withName("proxy-http").withContainerPort(8080).withProtocol("TCP").endPort()
                 .addNewPort().withName("devspace-http").withContainerPort(8081).withProtocol("TCP").endPort()
