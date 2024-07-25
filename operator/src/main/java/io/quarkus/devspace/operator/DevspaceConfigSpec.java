@@ -32,14 +32,17 @@ public class DevspaceConfigSpec {
     }
 
     private ProxyDeployment proxy;
+
     private String authType;
     /**
      * manual
      * ingress
      * route
      * secure-route
+     * nodePort;
      */
     private String exposePolicy;
+    private String routeHost;
 
     public ProxyDeployment getProxy() {
         return proxy;
@@ -63,5 +66,25 @@ public class DevspaceConfigSpec {
 
     public void setExposePolicy(String exposePolicy) {
         this.exposePolicy = exposePolicy;
+    }
+
+    public String getRouteHost() {
+        return routeHost;
+    }
+
+    public void setRouteHost(String routeHost) {
+        this.routeHost = routeHost;
+    }
+
+    public AuthenticationType toAuthenticationType() {
+        if (authType == null)
+            return AuthenticationType.secret;
+        return AuthenticationType.valueOf(authType);
+    }
+
+    public ExposePolicy toExposePolicy() {
+        if (exposePolicy == null)
+            return ExposePolicy.defaultPolicy;
+        return ExposePolicy.valueOf(exposePolicy);
     }
 }

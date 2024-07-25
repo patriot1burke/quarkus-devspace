@@ -3,8 +3,6 @@ package io.quarkus.devspace.test;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.equalTo;
 
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -26,15 +24,14 @@ import io.vertx.core.impl.VertxThread;
 import io.vertx.core.spi.VertxThreadFactory;
 
 @QuarkusTest
-@TestProfile(OpenshiftBasicAuthTestCase.ConfigOverrides.class)
-public class OpenshiftBasicAuthTestCase {
+@TestProfile(SecretAuthTestCase.ConfigOverrides.class)
+public class SecretAuthTestCase {
 
     public static Vertx vertx;
 
     static HttpServer myService;
 
     static HttpServer localService;
-    static HttpServer oauthService;
 
     public static class ConfigOverrides implements QuarkusTestProfile {
         @Override
@@ -43,8 +40,8 @@ public class OpenshiftBasicAuthTestCase {
                     "service.host", "localhost",
                     "service.name", "my-service",
                     "service.port", "9091",
-                    "auth.type", ProxySessionAuth.OPENSHIFT_BASIC_AUTH,
-                    "oauth.url", "http://localhost:9093",
+                    "auth.type", ProxySessionAuth.SECRET_AUTH,
+                    "secret", "geheim",
                     "client.api.port", "8082"
             //,"quarkus.log.level", "DEBUG"
             );
@@ -74,24 +71,6 @@ public class OpenshiftBasicAuthTestCase {
                     .end("local");
         }).listen(9092);
 
-        oauthService = vertx.createHttpServer();
-        oauthService.requestHandler(request -> {
-            String authorization = request.getHeader("Authorization");
-            String base64Credentials = authorization.substring("Basic".length()).trim();
-            byte[] credDecoded = Base64.getDecoder().decode(base64Credentials);
-            String credentials = new String(credDecoded, StandardCharsets.UTF_8);
-            // credentials = username:password
-            final String[] values = credentials.split(":", 2);
-            if (values[0].equals("bill") && values[1].equals("geheim")) {
-                request.response()
-                        .setStatusCode(302)
-                        .putHeader("Location", "http://localhost:9093?access_token=12345")
-                        .end();
-            } else {
-                request.response().setStatusCode(401).end();
-            }
-        }).listen(9093);
-
     }
 
     @AfterAll
@@ -100,29 +79,17 @@ public class OpenshiftBasicAuthTestCase {
             ProxyUtils.await(1000, myService.close());
         if (localService != null)
             ProxyUtils.await(1000, localService.close());
-        if (oauthService != null)
-            ProxyUtils.await(1000, oauthService.close());
         if (vertx != null)
             ProxyUtils.await(1000, vertx.close());
 
     }
 
     @Test
-    public void testBadPassword() {
+    public void testBaseSecret() {
         DevProxyClient client = DevProxyClient.create(vertx)
                 .devspace("http://localhost:8082?who=bill")
                 .service("localhost", 9092, false)
-                .basicAuth("bill", "badpassword")
-                .build();
-        Assertions.assertFalse(client.start());
-    }
-
-    @Test
-    public void testBadUser() {
-        DevProxyClient client = DevProxyClient.create(vertx)
-                .devspace("http://localhost:8082?who=bill")
-                .service("localhost", 9092, false)
-                .basicAuth("john", "geheim")
+                .secretAuth("badpassword")
                 .build();
         Assertions.assertFalse(client.start());
     }
@@ -132,7 +99,7 @@ public class OpenshiftBasicAuthTestCase {
         DevProxyClient client = DevProxyClient.create(vertx)
                 .devspace("http://localhost:8082?who=bill")
                 .service("localhost", 9092, false)
-                .credentials("bill:geheim")
+                .credentials("geheim")
                 .build();
         Assertions.assertTrue(client.start());
         try {

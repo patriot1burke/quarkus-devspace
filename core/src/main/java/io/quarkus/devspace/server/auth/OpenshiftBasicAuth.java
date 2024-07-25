@@ -1,8 +1,7 @@
-package io.quarkus.devspace.server.openshift;
+package io.quarkus.devspace.server.auth;
 
 import java.net.URI;
 
-import io.quarkus.devspace.server.auth.ProxySessionAuth;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientOptions;
@@ -29,9 +28,9 @@ public class OpenshiftBasicAuth implements ProxySessionAuth {
 
     @Override
     public void authenticate(RoutingContext ctx, Runnable success) {
-        String authorizationHeader = ctx.request().getHeader("Authorization");
-        if (authorizationHeader == null || !authorizationHeader.startsWith("Basic")) {
-            ctx.response().setStatusCode(401).putHeader("WWW-Authenticate", "Basic").end();
+        String authorizationHeader = ctx.request().getHeader(AUTHORIZATION);
+        if (authorizationHeader == null || !authorizationHeader.startsWith(BASIC)) {
+            ctx.response().setStatusCode(401).putHeader(WWW_AUTHENTICATE, BASIC).end();
             return;
         }
         client.request(HttpMethod.GET, "/oauth/authorize?response_type=token&client_id=openshift-challenging-client", event -> {
@@ -40,7 +39,7 @@ public class OpenshiftBasicAuth implements ProxySessionAuth {
                 return;
             }
             HttpClientRequest request = event.result();
-            request.putHeader("Authorization", authorizationHeader)
+            request.putHeader(AUTHORIZATION, authorizationHeader)
                     .send().onComplete(result -> {
                         if (result.succeeded() && result.result().statusCode() == 302) {
                             success.run();

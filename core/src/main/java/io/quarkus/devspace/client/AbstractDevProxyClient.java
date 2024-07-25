@@ -32,22 +32,33 @@ public abstract class AbstractDevProxyClient {
     protected boolean connected;
     protected volatile boolean shutdown = false;
     protected String tokenHeader = null;
-    protected String basicAuthHeader;
+    protected String authHeader;
+    protected String credentials;
 
     public void setProxyClient(HttpClient proxyClient) {
         this.proxyClient = proxyClient;
     }
 
     public void setBasicAuth(String username, String password) {
-        this.basicAuthHeader = getBasicAuthenticationHeader(username, password);
+        String valueToEncode = username + ":" + password;
+        this.authHeader = "Basic " + Base64.getEncoder().encodeToString(valueToEncode.getBytes());
     }
 
-    public String getTokenHeader() {
-        return tokenHeader;
+    public boolean setBasicAuth(String creds) {
+        int idx = creds.indexOf(':');
+        if (idx < 0) {
+            return false;
+        }
+        setBasicAuth(creds.substring(0, idx), creds.substring(idx + 1));
+        return true;
     }
 
-    public void setTokenHeader(String tokenHeader) {
-        this.tokenHeader = tokenHeader;
+    public void setCredentials(String credentials) {
+        this.credentials = credentials;
+    }
+
+    public void setSecretAuth(String secret) {
+        this.authHeader = "Secret " + secret;
     }
 
     public void initUri(String whoami, String sessionId, List<String> queries, List<String> paths, List<String> headers) {
@@ -70,14 +81,26 @@ public abstract class AbstractDevProxyClient {
         }
     }
 
-    private static final String getBasicAuthenticationHeader(String username, String password) {
-        String valueToEncode = username + ":" + password;
-        return "Basic " + Base64.getEncoder().encodeToString(valueToEncode.getBytes());
-    }
-
     public boolean start() {
         CountDownLatch latch = new CountDownLatch(1);
         AtomicBoolean success = new AtomicBoolean();
+        connect(latch, success, false);
+        try {
+            latch.await();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        if (!success.get()) {
+            log.error("Failed to connect to proxy server");
+            forcedShutdown();
+            return false;
+        }
+        this.connected = true;
+        return true;
+    }
+
+    protected void connect(CountDownLatch latch, AtomicBoolean success, boolean challenged) {
+        log.info("Connect " + (challenged ? "after challenge" : ""));
         proxyClient.request(HttpMethod.POST, uri, event -> {
             log.info("******* Connect request start");
             if (event.failed()) {
@@ -86,8 +109,8 @@ public abstract class AbstractDevProxyClient {
                 return;
             }
             HttpClientRequest request = event.result();
-            if (basicAuthHeader != null) {
-                request.putHeader("Authorization", basicAuthHeader);
+            if (authHeader != null) {
+                request.putHeader("Authorization", authHeader);
             }
             log.info("******* Sending Connect request");
             request.send().onComplete(event1 -> {
@@ -104,8 +127,31 @@ public abstract class AbstractDevProxyClient {
                         latch.countDown();
                     });
                     return;
-                }
-                if (response.statusCode() != 204) {
+                } else if (response.statusCode() == 401) {
+                    String wwwAuthenticate = response.getHeader(ProxySessionAuth.WWW_AUTHENTICATE);
+                    if (challenged || wwwAuthenticate == null) {
+                        log.error("Could not authenticate connection");
+                        latch.countDown();
+                        return;
+                    }
+                    if (wwwAuthenticate.startsWith(ProxySessionAuth.BASIC)) {
+                        if (!setBasicAuth(credentials)) {
+                            log.error("Expecting username:password for basic auth credentials string");
+                            latch.countDown();
+                            return;
+                        }
+                        connect(latch, success, true);
+                        return;
+                    } else if (wwwAuthenticate.startsWith(ProxySessionAuth.SECRET)) {
+                        setSecretAuth(credentials);
+                        connect(latch, success, true);
+                        return;
+                    } else {
+                        log.error("Unknown authentication protocol");
+                        latch.countDown();
+                        return;
+                    }
+                } else if (response.statusCode() != 204) {
                     response.bodyHandler(body -> {
                         log.error("Could not connect to startSession " + response.statusCode() + body.toString());
                         latch.countDown();
@@ -127,18 +173,6 @@ public abstract class AbstractDevProxyClient {
                 }
             });
         });
-        try {
-            latch.await();
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-        if (!success.get()) {
-            log.error("Failed to connect to proxy server");
-            forcedShutdown();
-            return false;
-        }
-        this.connected = true;
-        return true;
     }
 
     protected void reconnect() {

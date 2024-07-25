@@ -8,6 +8,7 @@ import java.util.function.UnaryOperator;
 
 import jakarta.inject.Inject;
 
+import org.apache.commons.lang3.RandomStringUtils;
 import org.jboss.logging.Logger;
 
 import io.fabric8.kubernetes.api.model.*;
@@ -17,6 +18,9 @@ import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.dsl.MixedOperation;
 import io.fabric8.kubernetes.client.dsl.Resource;
 import io.fabric8.kubernetes.client.dsl.ServiceResource;
+import io.fabric8.openshift.api.model.Route;
+import io.fabric8.openshift.api.model.RouteBuilder;
+import io.fabric8.openshift.client.OpenShiftClient;
 import io.javaoperatorsdk.operator.api.reconciler.Cleaner;
 import io.javaoperatorsdk.operator.api.reconciler.Context;
 import io.javaoperatorsdk.operator.api.reconciler.ControllerConfiguration;
@@ -31,7 +35,7 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
     protected static final Logger log = Logger.getLogger(DevspaceReconciler.class);
 
     @Inject
-    KubernetesClient client;
+    OpenShiftClient client;
 
     private DevspaceConfig getDevspaceConfig(Devspace primary) {
         MixedOperation<DevspaceConfig, KubernetesResourceList<DevspaceConfig>, Resource<DevspaceConfig>> configs = client
@@ -48,7 +52,7 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
         return primary.getMetadata().getName() + "-proxy";
     }
 
-    private void createProxyDeployment(Devspace primary, DevspaceConfig config) {
+    private void createProxyDeployment(Devspace primary, DevspaceConfig config, AuthenticationType auth) {
         String serviceName = primary.getMetadata().getName();
         String name = devspaceDeployment(primary);
         String image = "io.quarkus/quarkus-devspace-proxy:latest";
@@ -61,7 +65,7 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
             }
         }
 
-        Deployment deployment = new DeploymentBuilder()
+        var container = new DeploymentBuilder()
                 .withMetadata(DevspaceReconciler.createMetadata(primary, name))
                 .withNewSpec()
                 .withReplicas(1)
@@ -70,18 +74,28 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
                 .endSelector()
                 .withNewTemplate().withNewMetadata().addToLabels(Map.of("run", name)).endMetadata()
                 .withNewSpec()
-                .addNewContainer()
+                .addNewContainer();
+        if (auth == AuthenticationType.secret) {
+            container.addNewEnv().withName("AUTHENTICATION_TYPE").withValue(auth.name()).endEnv()
+                    .addNewEnv().withName("SECRET").withNewValueFrom().withNewSecretKeyRef().withName(devspaceSecret(primary))
+                    .withKey("password").endSecretKeyRef().endValueFrom().endEnv();
+        }
+
+        var spec = container
                 .addNewEnv().withName("SERVICE_NAME").withValue(serviceName).endEnv()
                 .addNewEnv().withName("SERVICE_HOST").withValue(origin(primary)).endEnv()
                 .addNewEnv().withName("SERVICE_PORT").withValue("80").endEnv()
                 .addNewEnv().withName("SERVICE_SSL").withValue("false").endEnv()
                 .addNewEnv().withName("CLIENT_API_PORT").withValue("8081").endEnv()
+                .addNewEnv().withName("AUTHENTICATION_TYPE").withValue(auth.name()).endEnv()
                 .withImage(image)
                 .withImagePullPolicy(imagePullPolicy)
                 .withName(name)
                 .addNewPort().withName("proxy-http").withContainerPort(8080).withProtocol("TCP").endPort()
                 .addNewPort().withName("devspace-http").withContainerPort(8081).withProtocol("TCP").endPort()
-                .endContainer()
+                .endContainer();
+
+        Deployment deployment = spec
                 .endSpec()
                 .endTemplate()
                 .endSpec()
@@ -123,9 +137,26 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
 
     private void createClientService(Devspace primary, DevspaceConfig config) {
         String name = devspaceServiceName(primary);
-        Service service = new ServiceBuilder()
+        ExposePolicy exposePolicy = config.getSpec().toExposePolicy();
+        if (exposePolicy == ExposePolicy.defaultPolicy) {
+            if (isOpenshift()) {
+                exposePolicy = ExposePolicy.secureRoute;
+            } else {
+                exposePolicy = ExposePolicy.nodePort;
+            }
+
+        }
+        var spec = new ServiceBuilder()
                 .withMetadata(DevspaceReconciler.createMetadata(primary, name))
-                .withNewSpec()
+                .withNewSpec();
+        if (primary.getSpec() != null && primary.getSpec().getNodePort() != null) {
+            spec.withType("NodePort")
+                    .addNewPort().withNodePort(primary.getSpec().getNodePort());
+        } else if (exposePolicy == ExposePolicy.nodePort) {
+            spec.withType("NodePort");
+        }
+
+        Service service = spec
                 .addNewPort()
                 .withName("http")
                 .withPort(80)
@@ -133,9 +164,35 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
                 .withTargetPort(new IntOrString(8081))
                 .endPort()
                 .withSelector(Map.of("run", devspaceDeployment(primary)))
-                .withType("NodePort")
                 .endSpec().build();
         client.resource(service).serverSideApply();
+
+        if (exposePolicy == ExposePolicy.secureRoute) {
+            String host = config.getSpec().getRouteHost();
+            if (host.startsWith(".")) {
+                host = primary.getMetadata().getName() + "-" + primary.getMetadata().getNamespace() + "-devspace" + host;
+            }
+            Route route = new RouteBuilder()
+                    .withMetadata(DevspaceReconciler.createMetadata(primary, primary.getMetadata().getName() + "-devspace"))
+                    .withNewSpec().withHost(host).withNewTo().withKind("Service").withName(primary.getMetadata().getName())
+                    .endTo()
+                    .withNewPort().withNewTargetPort("http").endPort()
+                    .withNewTls().withTermination("edge").withInsecureEdgeTerminationPolicy("Redirect").endTls()
+                    .endSpec().build();
+            client.adapt(OpenShiftClient.class).routes().resource(route).create();
+        } else if (exposePolicy == ExposePolicy.route) {
+            String host = config.getSpec().getRouteHost();
+            if (host.startsWith(".")) {
+                host = primary.getMetadata().getName() + "-" + primary.getMetadata().getNamespace() + "-devspace" + host;
+            }
+            Route route = new RouteBuilder()
+                    .withMetadata(DevspaceReconciler.createMetadata(primary, primary.getMetadata().getName() + "-devspace"))
+                    .withNewSpec().withHost(host).withNewTo().withKind("Service").withName(primary.getMetadata().getName())
+                    .endTo()
+                    .withNewPort().withNewTargetPort("http").endPort()
+                    .endSpec().build();
+            client.adapt(OpenShiftClient.class).routes().resource(route).create();
+        }
     }
 
     private boolean isOpenshift() {
@@ -146,18 +203,35 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
         return false;
     }
 
+    private static String devspaceSecret(Devspace primary) {
+        return primary.getMetadata().getName() + "-secret";
+    }
+
+    private void createSecret(Devspace devspace) {
+        String name = devspaceSecret(devspace);
+        String password = RandomStringUtils.randomAlphabetic(10);
+        Secret secret = new SecretBuilder()
+                .withMetadata(DevspaceReconciler.createMetadata(devspace, name))
+                .addToData("password", password)
+                .build();
+        client.secrets().resource(secret).create();
+    }
+
     @Override
     public UpdateControl<Devspace> reconcile(Devspace devspace, Context<Devspace> context) {
         if (devspace.getStatus() == null) {
             DevspaceConfig config = getDevspaceConfig(devspace);
-            createProxyDeployment(devspace, config);
+            AuthenticationType auth = config.getSpec().toAuthenticationType();
+            if (auth == AuthenticationType.secret) {
+                createSecret(devspace);
+            }
+            createProxyDeployment(devspace, config, auth);
             createOriginService(devspace, config);
             createClientService(devspace, config);
 
             final var name = devspace.getMetadata().getName();
             ServiceResource<Service> serviceResource = client.services().withName(name);
             Service service = serviceResource.get();
-            log.info("Updating status to reflect old selectors");
             Map<String, String> oldSelectors = new HashMap<>();
             oldSelectors.putAll(service.getSpec().getSelector());
             DevspaceStatus status = new DevspaceStatus();

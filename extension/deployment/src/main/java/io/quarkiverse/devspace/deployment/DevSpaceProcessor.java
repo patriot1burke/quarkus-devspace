@@ -42,13 +42,7 @@ public class DevSpaceProcessor {
                 throw new RuntimeException(devspace.error);
             }
             if (config.credentials.isPresent()) {
-                String creds = config.credentials.get();
-                int idx = creds.indexOf(':');
-                if (idx < 0) {
-                    throw new RuntimeException("Credentials must be username:password");
-                }
-                devspace.user = creds.substring(0, idx);
-                devspace.passwd = creds.substring(idx + 1);
+                devspace.credentials = config.credentials.get();
             }
             proxy.init(vertx.getVertx(), shutdown, devspace, config.manualStart);
         }

@@ -5,6 +5,15 @@ import io.vertx.ext.web.RoutingContext;
 
 public interface ProxySessionAuth {
     String BEARER_TOKEN_HEADER = "X-Bearer-Token";
+    String WWW_AUTHENTICATE = "WWW-Authenticate";
+    String AUTHORIZATION = "Authorization";
+    String BASIC = "Basic";
+    String SECRET = "Secret";
+
+    // built in auth types
+    String OPENSHIFT_BASIC_AUTH = "openshiftBasicAuth";
+    String SECRET_AUTH = "secret";
+    String NO_AUTH = "noAuth";
 
     /**
      * @param ctx

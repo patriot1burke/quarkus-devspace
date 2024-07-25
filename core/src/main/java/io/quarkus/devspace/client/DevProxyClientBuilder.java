@@ -53,6 +53,16 @@ public class DevProxyClientBuilder {
         return this;
     }
 
+    public DevProxyClientBuilder secretAuth(String secret) {
+        devProxyClient.setSecretAuth(secret);
+        return this;
+    }
+
+    public DevProxyClientBuilder credentials(String creds) {
+        devProxyClient.setCredentials(creds);
+        return this;
+    }
+
     public DevProxyClient build() {
         HttpClientOptions options = new HttpClientOptions();
         options.setDefaultHost(config.host);

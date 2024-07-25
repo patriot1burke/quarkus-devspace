@@ -7,7 +7,9 @@ import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
-import io.quarkus.devspace.server.openshift.OpenshiftBasicAuth;
+import io.quarkus.devspace.server.auth.OpenshiftBasicAuth;
+import io.quarkus.devspace.server.auth.ProxySessionAuth;
+import io.quarkus.devspace.server.auth.SecretAuth;
 import io.quarkus.runtime.Shutdown;
 import io.quarkus.runtime.StartupEvent;
 import io.vertx.core.Vertx;
@@ -18,7 +20,6 @@ import io.vertx.ext.web.Router;
 public class QuarkusDevProxyServer {
     protected static final Logger log = Logger.getLogger(QuarkusDevProxyServer.class);
 
-    public static final String OPENSHIFT_BASIC_AUTH = "openshift-basic-auth";
     @Inject
     @ConfigProperty(name = "service.name")
     protected String serviceName;
@@ -47,14 +48,21 @@ public class QuarkusDevProxyServer {
     @ConfigProperty(name = "oauth.url", defaultValue = "oauth-openshift.openshift-authentication.svc.cluster.local")
     protected String oauthUrl;
 
+    @Inject
+    @ConfigProperty(name = "secret", defaultValue = "badsecret")
+    protected String secret;
+
     protected DevProxyServer proxyServer;
     private HttpServer clientApi;
 
     public void start(@Observes StartupEvent start, Vertx vertx, Router proxyRouter) {
         proxyServer = new DevProxyServer();
-        if (OPENSHIFT_BASIC_AUTH.equals(authType)) {
+        if (ProxySessionAuth.OPENSHIFT_BASIC_AUTH.equalsIgnoreCase(authType)) {
             log.info("Openshift Basic Auth: " + oauthUrl);
             proxyServer.setAuth(new OpenshiftBasicAuth(vertx, oauthUrl));
+        } else if (ProxySessionAuth.SECRET_AUTH.equalsIgnoreCase(authType)) {
+            log.info("Secret auth");
+            proxyServer.setAuth(new SecretAuth(secret));
         }
         ServiceConfig config = new ServiceConfig(serviceName, serviceHost, servicePort, serviceSsl);
         clientApi = vertx.createHttpServer();
