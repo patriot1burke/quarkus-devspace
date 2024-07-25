@@ -4,7 +4,9 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.equalTo;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -19,6 +21,7 @@ import io.quarkus.devspace.server.auth.ProxySessionAuth;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.QuarkusTestProfile;
 import io.quarkus.test.junit.TestProfile;
+import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.impl.VertxBuilder;
@@ -96,15 +99,16 @@ public class OpenshiftBasicAuthTestCase {
 
     @AfterAll
     public static void after() {
+        List<Future> futures = new ArrayList<>();
         if (myService != null)
-            ProxyUtils.await(1000, myService.close());
+            futures.add(myService.close());
         if (localService != null)
-            ProxyUtils.await(1000, localService.close());
+            futures.add(localService.close());
         if (oauthService != null)
-            ProxyUtils.await(1000, oauthService.close());
+            futures.add(oauthService.close());
         if (vertx != null)
-            ProxyUtils.await(1000, vertx.close());
-
+            futures.add(vertx.close());
+        ProxyUtils.awaitAll(1000, futures);
     }
 
     @Test

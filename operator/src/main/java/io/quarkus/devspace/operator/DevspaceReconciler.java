@@ -29,7 +29,7 @@ import io.javaoperatorsdk.operator.api.reconciler.Reconciler;
 import io.javaoperatorsdk.operator.api.reconciler.UpdateControl;
 import io.quarkiverse.operatorsdk.annotations.CSVMetadata;
 
-@ControllerConfiguration(namespaces = WATCH_CURRENT_NAMESPACE, name = "devspaceproxy")
+@ControllerConfiguration(namespaces = WATCH_CURRENT_NAMESPACE, name = "devspace")
 @CSVMetadata(displayName = "Devspace operator", description = "Setup of Devspace for a specific service")
 public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspace> {
     protected static final Logger log = Logger.getLogger(DevspaceReconciler.class);
@@ -76,8 +76,7 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
                 .withNewSpec()
                 .addNewContainer();
         if (auth == AuthenticationType.secret) {
-            container.addNewEnv().withName("AUTHENTICATION_TYPE").withValue(auth.name()).endEnv()
-                    .addNewEnv().withName("SECRET").withNewValueFrom().withNewSecretKeyRef().withName(devspaceSecret(primary))
+            container.addNewEnv().withName("SECRET").withNewValueFrom().withNewSecretKeyRef().withName(devspaceSecret(primary))
                     .withKey("password").endSecretKeyRef().endValueFrom().endEnv();
         }
 
@@ -139,12 +138,7 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
         String name = devspaceServiceName(primary);
         ExposePolicy exposePolicy = config.getSpec().toExposePolicy();
         if (exposePolicy == ExposePolicy.defaultPolicy) {
-            if (isOpenshift()) {
-                exposePolicy = ExposePolicy.secureRoute;
-            } else {
-                exposePolicy = ExposePolicy.nodePort;
-            }
-
+            exposePolicy = ExposePolicy.nodePort;
         }
         var spec = new ServiceBuilder()
                 .withMetadata(DevspaceReconciler.createMetadata(primary, name))
@@ -168,30 +162,26 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
         client.resource(service).serverSideApply();
 
         if (exposePolicy == ExposePolicy.secureRoute) {
-            String host = config.getSpec().getRouteHost();
-            if (host.startsWith(".")) {
-                host = primary.getMetadata().getName() + "-" + primary.getMetadata().getNamespace() + "-devspace" + host;
-            }
+            String routeName = primary.getMetadata().getName() + "-devspace";
             Route route = new RouteBuilder()
-                    .withMetadata(DevspaceReconciler.createMetadata(primary, primary.getMetadata().getName() + "-devspace"))
-                    .withNewSpec().withHost(host).withNewTo().withKind("Service").withName(primary.getMetadata().getName())
+                    .withMetadata(DevspaceReconciler.createMetadata(primary, routeName))
+                    .withNewSpec().withNewTo().withKind("Service").withName(primary.getMetadata().getName())
                     .endTo()
                     .withNewPort().withNewTargetPort("http").endPort()
                     .withNewTls().withTermination("edge").withInsecureEdgeTerminationPolicy("Redirect").endTls()
                     .endSpec().build();
-            client.adapt(OpenShiftClient.class).routes().resource(route).create();
+            client.adapt(OpenShiftClient.class).routes().resource(route).serverSideApply();
+            primary.getStatus().getCleanup().add(new DevspaceStatus.CleanupResource("route", routeName));
         } else if (exposePolicy == ExposePolicy.route) {
-            String host = config.getSpec().getRouteHost();
-            if (host.startsWith(".")) {
-                host = primary.getMetadata().getName() + "-" + primary.getMetadata().getNamespace() + "-devspace" + host;
-            }
+            String routeName = primary.getMetadata().getName() + "-devspace";
             Route route = new RouteBuilder()
-                    .withMetadata(DevspaceReconciler.createMetadata(primary, primary.getMetadata().getName() + "-devspace"))
-                    .withNewSpec().withHost(host).withNewTo().withKind("Service").withName(primary.getMetadata().getName())
+                    .withMetadata(DevspaceReconciler.createMetadata(primary, routeName))
+                    .withNewSpec().withNewTo().withKind("Service").withName(primary.getMetadata().getName())
                     .endTo()
                     .withNewPort().withNewTargetPort("http").endPort()
                     .endSpec().build();
-            client.adapt(OpenShiftClient.class).routes().resource(route).create();
+            client.adapt(OpenShiftClient.class).routes().resource(route).serverSideApply();
+            primary.getStatus().getCleanup().add(new DevspaceStatus.CleanupResource("route", routeName));
         }
     }
 
@@ -212,14 +202,17 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
         String password = RandomStringUtils.randomAlphabetic(10);
         Secret secret = new SecretBuilder()
                 .withMetadata(DevspaceReconciler.createMetadata(devspace, name))
-                .addToData("password", password)
+                .addToStringData("password", password)
                 .build();
-        client.secrets().resource(secret).create();
+        client.secrets().resource(secret).serverSideApply();
+        devspace.getStatus().getCleanup().add(new DevspaceStatus.CleanupResource("secret", name));
     }
 
     @Override
     public UpdateControl<Devspace> reconcile(Devspace devspace, Context<Devspace> context) {
         if (devspace.getStatus() == null) {
+            DevspaceStatus status = new DevspaceStatus();
+            devspace.setStatus(status);
             DevspaceConfig config = getDevspaceConfig(devspace);
             AuthenticationType auth = config.getSpec().toAuthenticationType();
             if (auth == AuthenticationType.secret) {
@@ -234,10 +227,8 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
             Service service = serviceResource.get();
             Map<String, String> oldSelectors = new HashMap<>();
             oldSelectors.putAll(service.getSpec().getSelector());
-            DevspaceStatus status = new DevspaceStatus();
             status.setOldSelectors(oldSelectors);
             status.setOldExternalTrafficPolicy(service.getSpec().getExternalTrafficPolicy());
-            devspace.setStatus(status);
             String proxyDeploymentName = devspaceDeployment(devspace);
             UnaryOperator<Service> edit = (s) -> {
                 ServiceBuilder builder = new ServiceBuilder(s);
@@ -266,14 +257,24 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
 
     @Override
     public DeleteControl cleanup(Devspace devspace, Context<Devspace> context) {
-        log.debug("cleanup");
+        log.info("cleanup");
+        suppress(() -> client.services().withName(devspaceServiceName(devspace)).delete());
+        suppress(() -> client.services().withName(origin(devspace)).delete());
+        suppress(() -> client.apps().deployments().withName(devspaceDeployment(devspace)).delete());
         if (devspace.getStatus() == null || devspace.getStatus().getOldSelectors() == null) {
             return DeleteControl.defaultDelete();
         }
         resetServiceSelector(client, devspace);
-        suppress(() -> client.services().withName(devspaceServiceName(devspace)).delete());
-        suppress(() -> client.services().withName(origin(devspace)).delete());
-        suppress(() -> client.apps().deployments().withName(devspaceDeployment(devspace)).delete());
+        for (DevspaceStatus.CleanupResource cleanup : devspace.getStatus().getCleanup()) {
+            log.info("Cleanup: " + cleanup.getType() + " " + cleanup.getName());
+            if (cleanup.getType().equals("secret")) {
+                suppress(() -> client.secrets().inNamespace(devspace.getMetadata().getNamespace()).withName(cleanup.getName())
+                        .delete());
+            } else if (cleanup.getType().equals("route")) {
+                suppress(() -> client.adapt(OpenShiftClient.class).routes().inNamespace(devspace.getMetadata().getNamespace())
+                        .withName(cleanup.getName()).delete());
+            }
+        }
 
         return DeleteControl.defaultDelete();
     }

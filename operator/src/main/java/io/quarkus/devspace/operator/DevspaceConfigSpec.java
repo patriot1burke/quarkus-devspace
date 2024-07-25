@@ -42,7 +42,6 @@ public class DevspaceConfigSpec {
      * nodePort;
      */
     private String exposePolicy;
-    private String routeHost;
 
     public ProxyDeployment getProxy() {
         return proxy;
@@ -66,14 +65,6 @@ public class DevspaceConfigSpec {
 
     public void setExposePolicy(String exposePolicy) {
         this.exposePolicy = exposePolicy;
-    }
-
-    public String getRouteHost() {
-        return routeHost;
-    }
-
-    public void setRouteHost(String routeHost) {
-        this.routeHost = routeHost;
     }
 
     public AuthenticationType toAuthenticationType() {
