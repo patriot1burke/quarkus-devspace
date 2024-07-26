@@ -38,6 +38,8 @@ public class DevspaceStatus {
     private List<CleanupResource> cleanup = new ArrayList<>();
     private Map<String, String> oldSelectors = new HashMap<>();
     private String oldExternalTrafficPolicy;
+    private boolean created;
+    private String error;
 
     public Map<String, String> getOldSelectors() {
         return oldSelectors;
@@ -61,5 +63,21 @@ public class DevspaceStatus {
 
     public void setCleanup(List<CleanupResource> cleanup) {
         this.cleanup = cleanup;
+    }
+
+    public boolean isCreated() {
+        return created;
+    }
+
+    public void setCreated(boolean created) {
+        this.created = created;
+    }
+
+    public String getError() {
+        return error;
+    }
+
+    public void setError(String error) {
+        this.error = error;
     }
 }

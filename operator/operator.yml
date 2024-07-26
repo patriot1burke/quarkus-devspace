@@ -1,0 +1,258 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  annotations:
+    app.quarkus.io/quarkus-version: 3.11.0
+    app.quarkus.io/commit-id: 2bb0280275625c12023981fc89a487438c12dd04
+    app.quarkus.io/vcs-uri: https://github.com/patriot1burke/quarkus-devspace.git
+    app.quarkus.io/build-timestamp: 2024-07-25 - 20:21:15 +0000
+  labels:
+    app.kubernetes.io/name: quarkus-devspace-operator
+    app.kubernetes.io/version: 999-SNAPSHOT
+    app.kubernetes.io/managed-by: quarkus
+  name: quarkus-devspace-operator
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: devspaceconfig-cluster-role
+rules:
+  - apiGroups:
+      - io.quarkus.devspace
+    resources:
+      - devspaceconfigs
+      - devspaceconfigs/status
+      - devspaceconfigs/finalizers
+    verbs:
+      - get
+      - list
+      - watch
+      - patch
+      - update
+      - create
+      - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: devspace-cluster-role
+rules:
+  - apiGroups:
+      - io.quarkus.devspace
+    resources:
+      - devspaces
+      - devspaces/status
+      - devspaces/finalizers
+    verbs:
+      - get
+      - list
+      - watch
+      - patch
+      - update
+      - create
+      - delete
+  - apiGroups:
+      - ""
+      - apps
+    resources:
+      - services
+      - deployments
+      - secrets
+    verbs:
+      - get
+      - list
+      - patch
+      - update
+      - create
+      - delete
+  - apiGroups:
+      - ""
+      - route.openshift.io
+    resources:
+      - routes
+    verbs:
+      - get
+      - list
+      - patch
+      - update
+      - create
+      - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  annotations:
+    app.dekorate.io/commit-id: 2bb0280275625c12023981fc89a487438c12dd04
+  name: josdk-crd-validating-cluster-role
+rules:
+  - apiGroups:
+      - apiextensions.k8s.io
+    resources:
+      - customresourcedefinitions
+    verbs:
+      - get
+      - list
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: devspaceconfig-crd-validating-role-binding
+roleRef:
+  kind: ClusterRole
+  apiGroup: rbac.authorization.k8s.io
+  name: josdk-crd-validating-cluster-role
+subjects:
+  - kind: ServiceAccount
+    name: quarkus-devspace-operator
+    namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: devspace-crd-validating-role-binding
+roleRef:
+  kind: ClusterRole
+  apiGroup: rbac.authorization.k8s.io
+  name: josdk-crd-validating-cluster-role
+subjects:
+  - kind: ServiceAccount
+    name: quarkus-devspace-operator
+    namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: devspaceconfig-role-binding
+roleRef:
+  kind: ClusterRole
+  apiGroup: rbac.authorization.k8s.io
+  name: devspaceconfig-cluster-role
+subjects:
+  - kind: ServiceAccount
+    name: quarkus-devspace-operator
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: devspace-role-binding
+roleRef:
+  kind: ClusterRole
+  apiGroup: rbac.authorization.k8s.io
+  name: devspace-cluster-role
+subjects:
+  - kind: ServiceAccount
+    name: quarkus-devspace-operator
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/name: quarkus-devspace-operator
+    app.kubernetes.io/version: 999-SNAPSHOT
+  name: quarkus-devspace-operator-view
+roleRef:
+  kind: ClusterRole
+  apiGroup: rbac.authorization.k8s.io
+  name: view
+subjects:
+  - kind: ServiceAccount
+    name: quarkus-devspace-operator
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    app.quarkus.io/quarkus-version: 3.11.0
+    app.quarkus.io/commit-id: 2bb0280275625c12023981fc89a487438c12dd04
+    app.quarkus.io/vcs-uri: https://github.com/patriot1burke/quarkus-devspace.git
+    app.quarkus.io/build-timestamp: 2024-07-25 - 20:21:15 +0000
+  labels:
+    app.kubernetes.io/name: quarkus-devspace-operator
+    app.kubernetes.io/version: 999-SNAPSHOT
+    app.kubernetes.io/managed-by: quarkus
+  name: quarkus-devspace-operator
+spec:
+  ports:
+    - name: http
+      port: 80
+      protocol: TCP
+      targetPort: 8080
+  selector:
+    app.kubernetes.io/name: quarkus-devspace-operator
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    app.quarkus.io/quarkus-version: 3.11.0
+    app.quarkus.io/commit-id: 2bb0280275625c12023981fc89a487438c12dd04
+    app.quarkus.io/vcs-uri: https://github.com/patriot1burke/quarkus-devspace.git
+    app.quarkus.io/build-timestamp: 2024-07-25 - 20:21:15 +0000
+  labels:
+    app.kubernetes.io/name: quarkus-devspace-operator
+    app.kubernetes.io/version: 999-SNAPSHOT
+    app.kubernetes.io/managed-by: quarkus
+  name: quarkus-devspace-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: quarkus-devspace-operator
+  template:
+    metadata:
+      annotations:
+        app.quarkus.io/quarkus-version: 3.11.0
+        app.quarkus.io/commit-id: 2bb0280275625c12023981fc89a487438c12dd04
+        app.quarkus.io/vcs-uri: https://github.com/patriot1burke/quarkus-devspace.git
+        app.quarkus.io/build-timestamp: 2024-07-25 - 20:21:15 +0000
+      labels:
+        app.kubernetes.io/managed-by: quarkus
+        app.kubernetes.io/version: 999-SNAPSHOT
+        app.kubernetes.io/name: quarkus-devspace-operator
+    spec:
+      containers:
+        - env:
+            - name: KUBERNETES_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          image: default-route-openshift-image-registry.apps-crc.testing/default/quarkus-devspace-operator:latest
+          imagePullPolicy: Always
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /q/health/live
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 10
+          name: quarkus-devspace-operator
+          ports:
+            - containerPort: 8080
+              name: http
+              protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /q/health/ready
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 10
+          startupProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /q/health/started
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 10
+      serviceAccountName: quarkus-devspace-operator

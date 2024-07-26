@@ -41,7 +41,7 @@ public class QuarkusDevProxyServer {
     protected int clientApiPort;
 
     @Inject
-    @ConfigProperty(name = "auth.type", defaultValue = "NoAuth")
+    @ConfigProperty(name = "authentication.type", defaultValue = "NoAuth")
     protected String authType;
 
     @Inject

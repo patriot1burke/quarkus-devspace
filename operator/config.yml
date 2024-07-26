@@ -1,0 +1,8 @@
+apiVersion: "io.quarkus.devspace/v1"
+kind: DevspaceConfig
+metadata:
+  name: global
+spec:
+  exposePolicy: secureRoute
+  proxy:
+    image: "default-route-openshift-image-registry.apps-crc.testing/default/quarkus-devspace-proxy:latest"

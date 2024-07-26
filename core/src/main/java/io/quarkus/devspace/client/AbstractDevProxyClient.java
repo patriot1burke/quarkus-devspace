@@ -129,8 +129,19 @@ public abstract class AbstractDevProxyClient {
                     return;
                 } else if (response.statusCode() == 401) {
                     String wwwAuthenticate = response.getHeader(ProxySessionAuth.WWW_AUTHENTICATE);
-                    if (challenged || wwwAuthenticate == null) {
+                    if (wwwAuthenticate == null) {
                         log.error("Could not authenticate connection");
+                        latch.countDown();
+
+                    }
+                    if (challenged) {
+                        String message = "";
+                        if (wwwAuthenticate.startsWith("Basic")) {
+                            message = ". You must provide correct username and password in quarkus.devspace.credentials as <username>:<password>";
+                        } else if (wwwAuthenticate.startsWith("Secret")) {
+                            message = ". You must provide correct secret in quarkus.devspace.credentials";
+                        }
+                        log.error("Could not authenticate connection" + message);
                         latch.countDown();
                         return;
                     }
@@ -185,7 +196,9 @@ public abstract class AbstractDevProxyClient {
                 return;
             }
             HttpClientRequest request = event.result();
-            setToken(request);
+            if (authHeader != null) {
+                request.putHeader(ProxySessionAuth.AUTHORIZATION, authHeader);
+            }
             log.info("Sending reconnect request...");
             request.send().onComplete(event1 -> {
                 if (event1.failed()) {
@@ -223,7 +236,7 @@ public abstract class AbstractDevProxyClient {
         if (failure instanceof HttpClosedException) {
             log.warn("Client poll stopped.  Connection closed by server");
         } else if (failure instanceof TimeoutException) {
-            log.debug("Poll timeout");
+            log.info("Poll timeout");
             poll();
             return;
         } else {
@@ -317,13 +330,16 @@ public abstract class AbstractDevProxyClient {
                             log.error("Failed to delete sesssion on shutdown", event);
                             latch.countDown();
                         })
-                        .onSuccess(request -> request.send()
-                                .onComplete(event -> {
-                                    if (event.failed()) {
-                                        log.error("Failed to delete sesssion on shutdown", event.cause());
-                                    }
-                                    latch.countDown();
-                                }));
+                        .onSuccess(request -> {
+                            setToken(request);
+                            request.send()
+                                    .onComplete(event -> {
+                                        if (event.failed()) {
+                                            log.error("Failed to delete sesssion on shutdown", event.cause());
+                                        }
+                                        latch.countDown();
+                                    });
+                        });
 
             }
             try {

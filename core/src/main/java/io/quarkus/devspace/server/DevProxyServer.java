@@ -30,6 +30,8 @@ import io.vertx.httpproxy.HttpProxy;
 
 public class DevProxyServer {
 
+    public static final String VERSION = "1.0";
+
     public static AutoCloseable create(Vertx vertx, ServiceConfig config, int proxyPort, int clientApiPort) {
         HttpServer proxy = vertx.createHttpServer();
         HttpServer clientApi = vertx.createHttpServer();
@@ -90,7 +92,7 @@ public class DevProxyServer {
         }
 
         public void forwardRequestToPollerClient(RoutingContext proxiedCtx) {
-            log.infov("Forward request to poll client {0}", session.sessionId);
+            log.infov("Forward request to poller client {0} isClosed {1}", session.sessionId, isClosed());
             enqueued = false;
             HttpServerRequest proxiedRequest = proxiedCtx.request();
             HttpServerResponse pollResponse = pollerCtx.response();
@@ -109,7 +111,9 @@ public class DevProxyServer {
             pollResponse.putHeader(RESPONSE_LINK, responsePath);
             pollResponse.putHeader(METHOD_HEADER, proxiedRequest.method().toString());
             pollResponse.putHeader(URI_HEADER, proxiedRequest.uri());
-            sendBody(proxiedRequest, pollResponse);
+            //sendBody(proxiedRequest, pollResponse);
+            pollResponse.end();
+            log.info("Forward request to poller finished");
         }
     }
 
@@ -242,11 +246,13 @@ public class DevProxyServer {
         }
 
         public void handleProxiedRequest(RoutingContext ctx) {
+            log.info("handleProxiedRequest");
             ctx.request().pause();
             Poller poller = null;
             synchronized (pollLock) {
                 poller = awaitingPollers.poll();
                 if (poller == null) {
+                    log.info("No pollers, enqueueing");
                     awaiting.add(ctx);
                     return;
                 }
@@ -316,6 +322,8 @@ public class DevProxyServer {
             context.next();
         });
         // CLIENT API
+        clientApiRouter.route(CLIENT_API_PATH + "/version").method(HttpMethod.GET)
+                .handler((ctx) -> ctx.response().setStatusCode(200).putHeader("Content-Type", "text/plain").end(VERSION));
         clientApiRouter.route(CLIENT_API_PATH + "/poll/session/:session").method(HttpMethod.POST).handler(this::pollNext);
         clientApiRouter.route(CLIENT_API_PATH + "/connect").method(HttpMethod.POST).handler(this::clientConnect);
         clientApiRouter.route(CLIENT_API_PATH + "/connect").method(HttpMethod.DELETE).handler(this::deleteClientConnection);
@@ -329,7 +337,7 @@ public class DevProxyServer {
 
         // API routes
         proxyRouter.route(API_PATH + "/version").method(HttpMethod.GET)
-                .handler((ctx) -> ctx.response().setStatusCode(200).putHeader("Content-Type", "text/plain").end("1.0"));
+                .handler((ctx) -> ctx.response().setStatusCode(200).putHeader("Content-Type", "text/plain").end(VERSION));
         proxyRouter.route(API_PATH + "/clientIp").method(HttpMethod.GET)
                 .handler((ctx) -> ctx.response().setStatusCode(200).putHeader("Content-Type", "text/plain")
                         .end("" + ctx.request().remoteAddress().hostAddress()));
@@ -388,6 +396,7 @@ public class DevProxyServer {
         pipe.endOnFailure(false);
         pipe.to(destination, ar -> {
             if (ar.failed()) {
+                log.info("Failed to pipe response on poll");
                 destination.reset();
             }
         });
@@ -654,7 +663,6 @@ public class DevProxyServer {
 
     public void pollNext(RoutingContext ctx) {
         String sessionId = ctx.pathParam("session");
-        log.infov("pollNext {0} {1}", service.config.getName(), sessionId);
 
         ProxySession session = service.sessions.get(sessionId);
         if (session == null) {
@@ -664,6 +672,7 @@ public class DevProxyServer {
         }
         if (!auth.authorized(ctx, session))
             return;
+        log.infov("pollNext {0} {1}", service.config.getName(), sessionId);
         session.poll(ctx);
     }
 }
