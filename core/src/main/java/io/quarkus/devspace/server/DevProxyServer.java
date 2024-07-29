@@ -101,7 +101,7 @@ public class DevProxyServer {
         }
 
         public void forwardRequestToPollerClient(RoutingContext proxiedCtx) {
-            log.infov("Forward request to poller client {0}", session.sessionId);
+            log.debugv("Forward request to poller client {0}", session.sessionId);
             enqueued = false;
             HttpServerRequest proxiedRequest = proxiedCtx.request();
             HttpServerResponse pollResponse = pollerCtx.response();
@@ -270,13 +270,13 @@ public class DevProxyServer {
         }
 
         public void handleProxiedRequest(RoutingContext ctx) {
-            log.info("handleProxiedRequest");
+            log.debug("handleProxiedRequest");
             ctx.request().pause();
             Poller poller = null;
             synchronized (pollLock) {
                 poller = awaitingPollers.poll();
                 if (poller == null) {
-                    log.info("No pollers, enqueueing");
+                    log.debug("No pollers, enqueueing");
                     awaiting.add(ctx);
                     return;
                 }
@@ -435,7 +435,7 @@ public class DevProxyServer {
         pipe.endOnFailure(false);
         pipe.to(destination, ar -> {
             if (ar.failed()) {
-                log.info("Failed to pipe response on poll");
+                log.debug("Failed to pipe response on poll");
                 destination.reset();
             }
         });
@@ -479,7 +479,7 @@ public class DevProxyServer {
     }
 
     public void proxy(RoutingContext ctx) {
-        log.infov("*** entered proxy {0} {1}", ctx.request().method().toString(), ctx.request().uri());
+        log.debugv("*** entered proxy {0} {1}", ctx.request().method().toString(), ctx.request().uri());
 
         ProxySession found = null;
         find: for (ProxySession session : service.sessions.values()) {
@@ -504,7 +504,7 @@ public class DevProxyServer {
     public void clientConnect(RoutingContext ctx) {
         // TODO: add security 401 protocol
 
-        log.info("Connect: " + ctx.request().absoluteURI());
+        log.debug("Connect: " + ctx.request().absoluteURI());
         List<String> sessionQueryParam = ctx.queryParam("session");
         String sessionId = null;
         if (!sessionQueryParam.isEmpty()) {
@@ -543,7 +543,7 @@ public class DevProxyServer {
                     ctx.response().setStatusCode(400).putHeader("Content-Type", "text/plain").end("Must declare session");
                     return;
                 }
-                log.info("********** Adding PathParam " + value);
+                log.debug("********** Adding PathParam " + value);
                 matchers.add(new PathParamSessionMatcher(value));
             } else if ("header".equals(key)) {
                 if (sessionId == null) {
@@ -621,7 +621,7 @@ public class DevProxyServer {
         if (session != null) {
             if (!auth.authorized(ctx, session))
                 return;
-            log.infov("Shutdown session {0}", sessionId);
+            log.debugv("Shutdown session {0}", sessionId);
             session.shutdown();
             ctx.response().setStatusCode(204).end();
         } else {
@@ -670,11 +670,11 @@ public class DevProxyServer {
         });
         sendBody(pushedResponse, proxiedResponse);
         if (keepAlive) {
-            log.infov("Keep alive {0} {1}", service.config.getName(), sessionId);
+            log.debugv("Keep alive {0} {1}", service.config.getName(), sessionId);
             session.pollProcessing();
             session.poll(ctx);
         } else {
-            log.infov("End polling {0} {1}", service.config.getName(), sessionId);
+            log.debugv("End polling {0} {1}", service.config.getName(), sessionId);
             session.pollEnded();
             ctx.response().setStatusCode(204).end();
         }
@@ -714,7 +714,7 @@ public class DevProxyServer {
         }
         if (!auth.authorized(ctx, session))
             return;
-        log.infov("pollNext {0} {1}", service.config.getName(), sessionId);
+        log.debugv("pollNext {0} {1}", service.config.getName(), sessionId);
         session.poll(ctx);
     }
 }

@@ -44,11 +44,11 @@ public class DevProxyClient extends AbstractDevProxyClient {
     }
 
     private void invokeService(HttpClientResponse pollResponse, HttpClientRequest serviceRequest) {
-        log.info("**** INVOKE SERVICE ****");
+        log.debug("**** INVOKE SERVICE ****");
         serviceRequest.setTimeout(1000 * 1000); // long timeout as there might be a debugger session
         String responsePath = pollResponse.getHeader(DevProxyServer.RESPONSE_LINK);
         pollResponse.headers().forEach((key, val) -> {
-            log.infov("Poll response header: {0} : {1}", key, val);
+            log.debugv("Poll response header: {0} : {1}", key, val);
             int idx = key.indexOf(DevProxyServer.HEADER_FORWARD_PREFIX);
             if (idx == 0) {
                 String headerName = key.substring(DevProxyServer.HEADER_FORWARD_PREFIX.length());
@@ -81,7 +81,7 @@ public class DevProxyClient extends AbstractDevProxyClient {
 
     private void handleServiceResponse(String responsePath, HttpClientResponse serviceResponse) {
         serviceResponse.pause();
-        log.info("----> handleServiceResponse");
+        log.debug("----> handleServiceResponse");
         // do not keepAlive is we are in shutdown mode
         proxyClient.request(HttpMethod.POST, responsePath + "?keepAlive=" + running)
                 .onFailure(exc -> {

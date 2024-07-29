@@ -27,6 +27,7 @@ public class DevspaceConfigSpec {
     private String authType;
     private Integer pollTimeoutSeconds;
     private Integer idleTimeoutSeconds;
+    private String logLevel;
     /**
      * manual
      * ingress
@@ -88,6 +89,14 @@ public class DevspaceConfigSpec {
         return ExposePolicy.valueOf(exposePolicy);
     }
 
+    public String getLogLevel() {
+        return logLevel;
+    }
+
+    public void setLogLevel(String logLevel) {
+        this.logLevel = logLevel;
+    }
+
     /**
      * pull spec from config and set up default values if value not set
      *
@@ -108,6 +117,7 @@ public class DevspaceConfigSpec {
         if (config == null || config.getSpec() == null)
             return spec;
         DevspaceConfigSpec oldSpec = config.getSpec();
+        spec.setLogLevel(oldSpec.getLogLevel());
         if (oldSpec.getPollTimeoutSeconds() != null)
             spec.pollTimeoutSeconds = oldSpec.getPollTimeoutSeconds();
         if (oldSpec.getIdleTimeoutSeconds() != null)

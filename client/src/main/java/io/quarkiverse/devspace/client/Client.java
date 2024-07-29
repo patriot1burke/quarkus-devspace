@@ -23,6 +23,7 @@ public class Client {
         client = DevProxyClient.create(vertx)
                 .devspace(config)
                 .service("localhost", localPort, false)
+                .credentials(config.credentials)
                 .build();
         if (!client.start()) {
             return false;

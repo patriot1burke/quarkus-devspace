@@ -71,7 +71,7 @@ public abstract class AbstractDevProxyClient {
         if (sessionId == null)
             sessionId = DevProxyServer.GLOBAL_PROXY_SESSION;
         this.sessionId = sessionId;
-        log.info("Start devspace session: " + sessionId);
+        log.debug("Start devspace session: " + sessionId);
         this.uri = DevProxyServer.CLIENT_API_PATH + "/connect?who=" + whoami + "&session=" + sessionId;
         if (queries != null) {
             for (String query : queries)
@@ -106,9 +106,9 @@ public abstract class AbstractDevProxyClient {
     }
 
     protected void connect(CountDownLatch latch, AtomicBoolean success, boolean challenged) {
-        log.info("Connect " + (challenged ? "after challenge" : ""));
+        log.debug("Connect " + (challenged ? "after challenge" : ""));
         proxyClient.request(HttpMethod.POST, uri, event -> {
-            log.info("******* Connect request start");
+            log.debug("******* Connect request start");
             if (event.failed()) {
                 log.error("Could not connect to startSession", event.cause());
                 latch.countDown();
@@ -118,9 +118,9 @@ public abstract class AbstractDevProxyClient {
             if (authHeader != null) {
                 request.putHeader("Authorization", authHeader);
             }
-            log.info("******* Sending Connect request");
+            log.debug("******* Sending Connect request");
             request.send().onComplete(event1 -> {
-                log.info("******* Connect request onComplete");
+                log.debug("******* Connect request onComplete");
                 if (event1.failed()) {
                     log.error("Could not connect to startSession", event1.cause());
                     latch.countDown();
@@ -175,7 +175,7 @@ public abstract class AbstractDevProxyClient {
                     });
                     return;
                 }
-                log.info("******* Connect request succeeded");
+                log.debug("******* Connect request succeeded");
                 try {
                     this.pollLink = response.getHeader(DevProxyServer.POLL_LINK);
                     if (!pollTimeoutOverriden)
@@ -197,7 +197,7 @@ public abstract class AbstractDevProxyClient {
     protected void reconnect() {
         if (!running)
             return;
-        log.info("reconnect.....");
+        log.debug("reconnect.....");
         proxyClient.request(HttpMethod.POST, uri, event -> {
             if (event.failed()) {
                 log.error("Could not reconnect to session", event.cause());
@@ -207,7 +207,7 @@ public abstract class AbstractDevProxyClient {
             if (authHeader != null) {
                 request.putHeader(ProxySessionAuth.AUTHORIZATION, authHeader);
             }
-            log.info("Sending reconnect request...");
+            log.debug("Sending reconnect request...");
             request.send().onComplete(event1 -> {
                 if (event1.failed()) {
                     log.error("Could not reconnect to session", event1.cause());
@@ -226,7 +226,7 @@ public abstract class AbstractDevProxyClient {
                     });
                     return;
                 }
-                log.info("Reconnect succeeded");
+                log.debug("Reconnect succeeded");
                 this.pollLink = response.getHeader(DevProxyServer.POLL_LINK);
                 if (!pollTimeoutOverriden)
                     this.pollTimeoutMillis = Long.parseLong(response.getHeader(DevProxyServer.POLL_TIMEOUT));
@@ -246,7 +246,7 @@ public abstract class AbstractDevProxyClient {
         if (failure instanceof HttpClosedException) {
             log.warn("Client poll stopped.  Connection closed by server");
         } else if (failure instanceof TimeoutException) {
-            log.info("Poll timeout");
+            log.debug("Poll timeout");
             poll();
             return;
         } else {
@@ -297,28 +297,28 @@ public abstract class AbstractDevProxyClient {
 
     protected void handlePoll(HttpClientResponse pollResponse) {
         pollResponse.pause();
-        log.info("------ handlePoll");
+        log.debug("------ handlePoll");
         int proxyStatus = pollResponse.statusCode();
         if (proxyStatus == 408) {
-            log.info("Poll timeout, redo poll");
+            log.debug("Poll timeout, redo poll");
             poll();
             return;
         } else if (proxyStatus == 204) {
             // keepAlive = false sent back
-            log.info("Keepalive = false.  Stop Polling");
+            log.debug("Keepalive = false.  Stop Polling");
             workerOffline();
             return;
         } else if (proxyStatus == 404) {
-            log.info("session was closed, exiting poll");
+            log.debug("session was closed, exiting poll");
             workerOffline();
             reconnect();
             return;
         } else if (proxyStatus == 504) {
-            log.info("Gateway timeout, redo poll");
+            log.debug("Gateway timeout, redo poll");
             poll();
             return;
         } else if (proxyStatus != 200) {
-            log.info("Poll failure: " + proxyStatus);
+            log.debug("Poll failure: " + proxyStatus);
             workerOffline();
             return;
         }

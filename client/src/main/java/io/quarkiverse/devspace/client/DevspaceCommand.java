@@ -14,6 +14,10 @@ public class DevspaceCommand implements Callable<Integer> {
             "--port" }, defaultValue = "8080", description = "port of local process", showDefaultValue = CommandLine.Help.Visibility.ALWAYS)
     private int port = 8080;
 
+    @CommandLine.Option(names = { "-c",
+            "--credentials" }, description = "user:password or secret")
+    private String credentials;
+
     @CommandLine.Parameters(index = "0", description = "URI of devspace")
     private String uri;
 
@@ -29,6 +33,7 @@ public class DevspaceCommand implements Callable<Integer> {
             new CommandLine(new DevspaceCommand()).usage(System.out);
             return CommandLine.ExitCode.USAGE;
         }
+        config.credentials = credentials;
         if (!client.start(port, config)) {
             System.out.println("Failed to start");
         }

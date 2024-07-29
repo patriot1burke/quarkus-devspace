@@ -72,6 +72,10 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
             container.addNewEnv().withName("SECRET").withNewValueFrom().withNewSecretKeyRef().withName(devspaceSecret(primary))
                     .withKey("password").endSecretKeyRef().endValueFrom().endEnv();
         }
+        if (config.getLogLevel() != null) {
+            container.addNewEnv().withName("QUARKUS_LOG_CATEGORY__IO_QUARKUS_DEVSPACE__LEVEL").withValue(config.getLogLevel())
+                    .endEnv();
+        }
         long pollTimeout = config.getPollTimeoutSeconds() * 1000;
         long idleTimeout = config.getIdleTimeoutSeconds() * 1000;
 
