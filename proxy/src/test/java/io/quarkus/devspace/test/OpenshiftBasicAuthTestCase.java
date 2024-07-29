@@ -46,7 +46,7 @@ public class OpenshiftBasicAuthTestCase {
                     "service.host", "localhost",
                     "service.name", "my-service",
                     "service.port", "9091",
-                    "auth.type", ProxySessionAuth.OPENSHIFT_BASIC_AUTH,
+                    "authentication.type", ProxySessionAuth.OPENSHIFT_BASIC_AUTH,
                     "oauth.url", "http://localhost:9093",
                     "client.api.port", "8082"
             //,"quarkus.log.level", "DEBUG"

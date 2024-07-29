@@ -55,11 +55,14 @@ public class DevProxyServer {
         final ProxySession session;
         final RoutingContext pollerCtx;
         final AtomicBoolean closed = new AtomicBoolean();
+        final long timestamp = System.currentTimeMillis();
+        final long timeout;
         boolean enqueued;
 
-        public Poller(ProxySession session, RoutingContext pollerCtx) {
+        public Poller(ProxySession session, RoutingContext pollerCtx, long timeout) {
             this.session = session;
             this.pollerCtx = pollerCtx;
+            this.timeout = timeout;
         }
 
         private void enqueuePoller() {
@@ -69,6 +72,16 @@ public class DevProxyServer {
             pollerCtx.request().connection().closeHandler(v -> connectionFailure());
             pollerCtx.request().connection().exceptionHandler(v -> connectionFailure());
             enqueued = true;
+        }
+
+        public boolean isTimedOut() {
+            if (closed.get()) {
+                return true;
+            }
+            if (System.currentTimeMillis() - timestamp >= timeout) {
+                closed.set(true);
+            }
+            return closed.get();
         }
 
         private void connectionFailure() {
@@ -81,10 +94,6 @@ public class DevProxyServer {
             session.pollDisconnect();
         }
 
-        public boolean isClosed() {
-            return closed.get();
-        }
-
         public void closeSession() {
             if (closed.get())
                 return;
@@ -92,7 +101,7 @@ public class DevProxyServer {
         }
 
         public void forwardRequestToPollerClient(RoutingContext proxiedCtx) {
-            log.infov("Forward request to poller client {0} isClosed {1}", session.sessionId, isClosed());
+            log.infov("Forward request to poller client {0}", session.sessionId);
             enqueued = false;
             HttpServerRequest proxiedRequest = proxiedCtx.request();
             HttpServerResponse pollResponse = pollerCtx.response();
@@ -112,7 +121,6 @@ public class DevProxyServer {
             pollResponse.putHeader(METHOD_HEADER, proxiedRequest.method().toString());
             pollResponse.putHeader(URI_HEADER, proxiedRequest.uri());
             sendBody(proxiedRequest, pollResponse);
-            log.info("Forward request to poller finished");
         }
     }
 
@@ -126,6 +134,7 @@ public class DevProxyServer {
         final Deque<RoutingContext> awaiting = new LinkedList<>();
         final Deque<Poller> awaitingPollers = new LinkedList<>();
         final Object pollLock = new Object();
+        long pollTimeout = defaultPollTimeout;
 
         List<RequestSessionMatcher> matchers = new ArrayList<>();
 
@@ -134,21 +143,38 @@ public class DevProxyServer {
         AtomicLong requestId = new AtomicLong(System.currentTimeMillis());
 
         ProxySession(ServiceProxy proxy, String sessionId, String who) {
-            timerId = vertx.setPeriodic(POLL_TIMEOUT, this::timerCallback);
+            timerId = vertx.setPeriodic(timerPeriod, this::timerCallback);
             this.proxy = proxy;
             this.sessionId = sessionId;
             this.who = who;
         }
 
         void timerCallback(Long t) {
+            List<Poller> idlePollers = null;
+            synchronized (pollLock) {
+                Iterator<Poller> it = awaitingPollers.iterator();
+                while (it.hasNext()) {
+                    Poller poller = it.next();
+                    if (poller.isTimedOut()) {
+                        if (idlePollers == null)
+                            idlePollers = new ArrayList<>();
+                        idlePollers.add(poller);
+                        it.remove();
+                    }
+                }
+            }
+            if (idlePollers != null) {
+                for (Poller poller : idlePollers)
+                    poller.pollerCtx.response().setStatusCode(408).end();
+            }
             checkIdle();
         }
 
         void checkIdle() {
             if (!running)
                 return;
-            if (System.currentTimeMillis() - lastPoll > POLL_TIMEOUT) {
-                log.warnv("Shutting down session {0} due to timeout.", sessionId);
+            if (System.currentTimeMillis() - lastPoll > idleTimeout) {
+                log.warnv("Shutting down session {0} due to idle timeout.", sessionId);
                 shutdown();
             }
         }
@@ -231,7 +257,7 @@ public class DevProxyServer {
         public void poll(RoutingContext pollingCtx) {
             this.pollStarted();
             RoutingContext proxiedCtx = null;
-            Poller poller = new Poller(this, pollingCtx);
+            Poller poller = new Poller(this, pollingCtx, pollTimeout);
             synchronized (pollLock) {
                 proxiedCtx = awaiting.poll();
                 if (proxiedCtx == null) {
@@ -296,19 +322,26 @@ public class DevProxyServer {
     public static final String REQUEST_ID_HEADER = "X-DevSpace-Request-Id";
     public static final String RESPONSE_LINK = "X-DevSpace-Response-Path";
     public static final String POLL_LINK = "X-DevSpace-Poll-Path";
+    public static final String POLL_TIMEOUT = "X-DevSpace-Poll-Timeout";
 
-    protected long POLL_TIMEOUT = 5000;
+    protected long idleTimeout = 60000;
+    protected long defaultPollTimeout = 5000;
+    protected long timerPeriod = 1000;
     protected static final Logger log = Logger.getLogger(DevProxyServer.class);
     protected ServiceProxy service;
     protected Vertx vertx;
     protected ProxySessionAuth auth = new NoAuth();
 
-    public long getPollTimeout() {
-        return POLL_TIMEOUT;
+    public void setTimerPeriod(long timerPeriod) {
+        this.timerPeriod = timerPeriod;
     }
 
-    public void setPollTimeout(long timeout) {
-        POLL_TIMEOUT = timeout;
+    public void setIdleTimeout(long idleTimeout) {
+        this.idleTimeout = idleTimeout;
+    }
+
+    public void setPollTimeout(long pollTimeout) {
+        this.defaultPollTimeout = pollTimeout;
     }
 
     public void setAuth(ProxySessionAuth auth) {
@@ -550,7 +583,9 @@ public class DevProxyServer {
                     return;
                 }
                 if (auth.authorized(ctx, session)) {
-                    ctx.response().setStatusCode(204).putHeader(POLL_LINK, CLIENT_API_PATH + "/poll/session/" + sessionId)
+                    ctx.response().setStatusCode(204)
+                            .putHeader(POLL_TIMEOUT, Long.toString(session.pollTimeout))
+                            .putHeader(POLL_LINK, CLIENT_API_PATH + "/poll/session/" + sessionId)
                             .end();
                 }
             } else {
@@ -566,6 +601,7 @@ public class DevProxyServer {
 
                     auth.propagateToken(ctx, newSession);
                     ctx.response().setStatusCode(204)
+                            .putHeader(POLL_TIMEOUT, Long.toString(newSession.pollTimeout))
                             .putHeader(POLL_LINK, CLIENT_API_PATH + "/poll/session/" + finalSessionId)
                             .end();
                 });

@@ -41,11 +41,15 @@ public class QuarkusDevProxyServer {
     protected int clientApiPort;
 
     @Inject
+    @ConfigProperty(name = "idle.timeout", defaultValue = "60000")
+    protected int idleTimeout;
+
+    @Inject
     @ConfigProperty(name = "poll.timeout", defaultValue = "5000")
     protected int pollTimeout;
 
     @Inject
-    @ConfigProperty(name = "authentication.type", defaultValue = "NoAuth")
+    @ConfigProperty(name = "authentication.type", defaultValue = "none")
     protected String authType;
 
     @Inject
@@ -61,13 +65,18 @@ public class QuarkusDevProxyServer {
 
     public void start(@Observes StartupEvent start, Vertx vertx, Router proxyRouter) {
         proxyServer = new DevProxyServer();
+        proxyServer.setIdleTimeout(idleTimeout);
+        log.info("Idle timeout millis: " + idleTimeout);
         proxyServer.setPollTimeout(pollTimeout);
+        log.info("Poll timeout millis: " + pollTimeout);
         if (ProxySessionAuth.OPENSHIFT_BASIC_AUTH.equalsIgnoreCase(authType)) {
             log.info("Openshift Basic Auth: " + oauthUrl);
             proxyServer.setAuth(new OpenshiftBasicAuth(vertx, oauthUrl));
         } else if (ProxySessionAuth.SECRET_AUTH.equalsIgnoreCase(authType)) {
             log.info("Secret auth");
             proxyServer.setAuth(new SecretAuth(secret));
+        } else {
+            log.info("no auth");
         }
         ServiceConfig config = new ServiceConfig(serviceName, serviceHost, servicePort, serviceSsl);
         clientApi = vertx.createHttpServer();

@@ -26,6 +26,7 @@ public class DevspaceConfigSpec {
 
     private String authType;
     private Integer pollTimeoutSeconds;
+    private Integer idleTimeoutSeconds;
     /**
      * manual
      * ingress
@@ -63,6 +64,14 @@ public class DevspaceConfigSpec {
         return pollTimeoutSeconds;
     }
 
+    public Integer getIdleTimeoutSeconds() {
+        return idleTimeoutSeconds;
+    }
+
+    public void setIdleTimeoutSeconds(Integer idleTimeoutSeconds) {
+        this.idleTimeoutSeconds = idleTimeoutSeconds;
+    }
+
     public void setPollTimeoutSeconds(Integer pollTimeoutSeconds) {
         this.pollTimeoutSeconds = pollTimeoutSeconds;
     }
@@ -93,12 +102,16 @@ public class DevspaceConfigSpec {
         spec.setProxy(new ProxyDeployment());
         spec.getProxy().setImage("io.quarkus/quarkus-devspace-proxy:latest");
         spec.getProxy().setImagePullPolicy("Always");
+        spec.setIdleTimeoutSeconds(60);
+        spec.setPollTimeoutSeconds(5);
 
         if (config == null || config.getSpec() == null)
             return spec;
         DevspaceConfigSpec oldSpec = config.getSpec();
         if (oldSpec.getPollTimeoutSeconds() != null)
             spec.pollTimeoutSeconds = oldSpec.getPollTimeoutSeconds();
+        if (oldSpec.getIdleTimeoutSeconds() != null)
+            spec.idleTimeoutSeconds = oldSpec.getIdleTimeoutSeconds();
         if (oldSpec.getAuthType() != null)
             spec.authType = oldSpec.getAuthType();
         if (oldSpec.getExposePolicy() != null)

@@ -72,14 +72,16 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
             container.addNewEnv().withName("SECRET").withNewValueFrom().withNewSecretKeyRef().withName(devspaceSecret(primary))
                     .withKey("password").endSecretKeyRef().endValueFrom().endEnv();
         }
-        int pollTimeout = config.getPollTimeoutSeconds() * 1000;
+        long pollTimeout = config.getPollTimeoutSeconds() * 1000;
+        long idleTimeout = config.getIdleTimeoutSeconds() * 1000;
 
         var spec = container
                 .addNewEnv().withName("SERVICE_NAME").withValue(serviceName).endEnv()
                 .addNewEnv().withName("SERVICE_HOST").withValue(origin(primary)).endEnv()
                 .addNewEnv().withName("SERVICE_PORT").withValue("80").endEnv()
                 .addNewEnv().withName("SERVICE_SSL").withValue("false").endEnv()
-                .addNewEnv().withName("POLL_TIMEOUT").withValue(Integer.toString(pollTimeout)).endEnv()
+                .addNewEnv().withName("POLL_TIMEOUT").withValue(Long.toString(pollTimeout)).endEnv()
+                .addNewEnv().withName("IDLE_TIMEOUT").withValue(Long.toString(idleTimeout)).endEnv()
                 .addNewEnv().withName("CLIENT_API_PORT").withValue("8081").endEnv()
                 .addNewEnv().withName("AUTHENTICATION_TYPE").withValue(auth.name()).endEnv()
                 .withImage(image)
@@ -160,13 +162,13 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
                 .endSpec().build();
         client.resource(service).serverSideApply();
 
-        int pollTimeout = config.getPollTimeoutSeconds();
+        int routerTimeout = config.getPollTimeoutSeconds() + 1;
 
         if (exposePolicy == ExposePolicy.secureRoute) {
             String routeName = primary.getMetadata().getName() + "-devspace";
             Route route = new RouteBuilder()
                     .withMetadata(DevspaceReconciler.createMetadataWithAnnotations(primary, routeName,
-                            "haproxy.router.openshift.io/timeout", pollTimeout + "s"))
+                            "haproxy.router.openshift.io/timeout", routerTimeout + "s"))
                     .withNewSpec().withNewTo().withKind("Service").withName(devspaceServiceName(primary))
                     .endTo()
                     .withNewPort().withNewTargetPort("http").endPort()
@@ -178,7 +180,7 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
             String routeName = primary.getMetadata().getName() + "-devspace";
             Route route = new RouteBuilder()
                     .withMetadata(DevspaceReconciler.createMetadataWithAnnotations(primary, routeName,
-                            "haproxy.router.openshift.io/timeout", pollTimeout + "s"))
+                            "haproxy.router.openshift.io/timeout", routerTimeout + "s"))
                     .withNewSpec().withNewTo().withKind("Service").withName(devspaceServiceName(primary))
                     .endTo()
                     .withNewPort().withNewTargetPort("http").endPort()

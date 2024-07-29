@@ -27,13 +27,19 @@ public abstract class AbstractDevProxyClient {
     protected volatile boolean running = true;
     protected String pollLink;
     protected Phaser workerShutdown;
-    protected long pollTimeoutMillis = 3000;
+    protected long pollTimeoutMillis;
+    protected boolean pollTimeoutOverriden;
     protected String uri;
     protected boolean connected;
     protected volatile boolean shutdown = false;
     protected String tokenHeader = null;
     protected String authHeader;
     protected String credentials;
+
+    public void setPollTimeoutMillis(long pollTimeoutMillis) {
+        pollTimeoutOverriden = true;
+        this.pollTimeoutMillis = pollTimeoutMillis;
+    }
 
     public void setProxyClient(HttpClient proxyClient) {
         this.proxyClient = proxyClient;
@@ -172,6 +178,8 @@ public abstract class AbstractDevProxyClient {
                 log.info("******* Connect request succeeded");
                 try {
                     this.pollLink = response.getHeader(DevProxyServer.POLL_LINK);
+                    if (!pollTimeoutOverriden)
+                        this.pollTimeoutMillis = Long.parseLong(response.getHeader(DevProxyServer.POLL_TIMEOUT));
                     this.tokenHeader = response.getHeader(ProxySessionAuth.BEARER_TOKEN_HEADER);
                     workerShutdown = new Phaser(1);
                     for (int i = 0; i < numPollers; i++) {
@@ -220,6 +228,8 @@ public abstract class AbstractDevProxyClient {
                 }
                 log.info("Reconnect succeeded");
                 this.pollLink = response.getHeader(DevProxyServer.POLL_LINK);
+                if (!pollTimeoutOverriden)
+                    this.pollTimeoutMillis = Long.parseLong(response.getHeader(DevProxyServer.POLL_TIMEOUT));
                 workerShutdown.register();
                 poll();
             });
@@ -290,7 +300,7 @@ public abstract class AbstractDevProxyClient {
         log.info("------ handlePoll");
         int proxyStatus = pollResponse.statusCode();
         if (proxyStatus == 408) {
-            log.debug("Poll timeout, redo poll");
+            log.info("Poll timeout, redo poll");
             poll();
             return;
         } else if (proxyStatus == 204) {
@@ -303,10 +313,13 @@ public abstract class AbstractDevProxyClient {
             workerOffline();
             reconnect();
             return;
+        } else if (proxyStatus == 504) {
+            log.info("Gateway timeout, redo poll");
+            poll();
+            return;
         } else if (proxyStatus != 200) {
-            pollResponse.bodyHandler(body -> {
-                pollFailure(body.toString());
-            });
+            log.info("Poll failure: " + proxyStatus);
+            workerOffline();
             return;
         }
 

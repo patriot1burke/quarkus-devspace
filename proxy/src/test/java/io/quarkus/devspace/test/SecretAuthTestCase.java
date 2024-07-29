@@ -43,7 +43,7 @@ public class SecretAuthTestCase {
                     "service.host", "localhost",
                     "service.name", "my-service",
                     "service.port", "9091",
-                    "auth.type", ProxySessionAuth.SECRET_AUTH,
+                    "authentication.type", ProxySessionAuth.SECRET_AUTH,
                     "secret", "geheim",
                     "client.api.port", "8082"
             //,"quarkus.log.level", "DEBUG"

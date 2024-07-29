@@ -44,7 +44,7 @@ public class DevProxyClientBuilder {
     }
 
     public DevProxyClientBuilder pollTimeoutMillis(long timeout) {
-        devProxyClient.pollTimeoutMillis = timeout;
+        devProxyClient.setPollTimeoutMillis(timeout);
         return this;
     }
 
