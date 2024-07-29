@@ -37,7 +37,7 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
     @Inject
     OpenShiftClient client;
 
-    private DevspaceConfig getDevspaceConfig(Devspace primary) {
+    private DevspaceConfigSpec getDevspaceConfig(Devspace primary) {
         MixedOperation<DevspaceConfig, KubernetesResourceList<DevspaceConfig>, Resource<DevspaceConfig>> configs = client
                 .resources(DevspaceConfig.class);
         String configName = "global";
@@ -45,25 +45,18 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
             configName = primary.getSpec().getConfig();
         }
         DevspaceConfig config = configs.inNamespace(primary.getMetadata().getNamespace()).withName(configName).get();
-        return config;
+        return DevspaceConfigSpec.toDefaultedSpec(config);
     }
 
     public static String devspaceDeployment(Devspace primary) {
         return primary.getMetadata().getName() + "-proxy";
     }
 
-    private void createProxyDeployment(Devspace primary, DevspaceConfig config, AuthenticationType auth) {
+    private void createProxyDeployment(Devspace primary, DevspaceConfigSpec config, AuthenticationType auth) {
         String serviceName = primary.getMetadata().getName();
         String name = devspaceDeployment(primary);
-        String image = "io.quarkus/quarkus-devspace-proxy:latest";
-        String imagePullPolicy = "Always";
-        if (config != null) {
-            if (config.getSpec() != null && config.getSpec().getProxy() != null) {
-                image = config.getSpec().getProxy().getImage() == null ? image : config.getSpec().getProxy().getImage();
-                imagePullPolicy = config.getSpec().getProxy().getImagePullPolicy() == null ? imagePullPolicy
-                        : config.getSpec().getProxy().getImagePullPolicy();
-            }
-        }
+        String image = config.getProxy().getImage();
+        String imagePullPolicy = config.getProxy().getImagePullPolicy();
 
         var container = new DeploymentBuilder()
                 .withMetadata(DevspaceReconciler.createMetadata(primary, name))
@@ -79,12 +72,14 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
             container.addNewEnv().withName("SECRET").withNewValueFrom().withNewSecretKeyRef().withName(devspaceSecret(primary))
                     .withKey("password").endSecretKeyRef().endValueFrom().endEnv();
         }
+        int pollTimeout = config.getPollTimeoutSeconds() * 1000;
 
         var spec = container
                 .addNewEnv().withName("SERVICE_NAME").withValue(serviceName).endEnv()
                 .addNewEnv().withName("SERVICE_HOST").withValue(origin(primary)).endEnv()
                 .addNewEnv().withName("SERVICE_PORT").withValue("80").endEnv()
                 .addNewEnv().withName("SERVICE_SSL").withValue("false").endEnv()
+                .addNewEnv().withName("POLL_TIMEOUT").withValue(Integer.toString(pollTimeout)).endEnv()
                 .addNewEnv().withName("CLIENT_API_PORT").withValue("8081").endEnv()
                 .addNewEnv().withName("AUTHENTICATION_TYPE").withValue(auth.name()).endEnv()
                 .withImage(image)
@@ -108,7 +103,7 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
         return primary.getMetadata().getName() + "-origin";
     }
 
-    private void createOriginService(Devspace primary, DevspaceConfig config) {
+    private void createOriginService(Devspace primary, DevspaceConfigSpec config) {
         String serviceName = primary.getMetadata().getName();
         String name = origin(primary);
         Map<String, String> selector = null;
@@ -138,9 +133,9 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
         return primary.getMetadata().getName() + "-devspace";
     }
 
-    private void createClientService(Devspace primary, DevspaceConfig config) {
+    private void createClientService(Devspace primary, DevspaceConfigSpec config) {
         String name = devspaceServiceName(primary);
-        ExposePolicy exposePolicy = config.getSpec().toExposePolicy();
+        ExposePolicy exposePolicy = config.toExposePolicy();
         if (exposePolicy == ExposePolicy.defaultPolicy) {
             exposePolicy = ExposePolicy.nodePort;
         }
@@ -165,10 +160,13 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
                 .endSpec().build();
         client.resource(service).serverSideApply();
 
+        int pollTimeout = config.getPollTimeoutSeconds();
+
         if (exposePolicy == ExposePolicy.secureRoute) {
             String routeName = primary.getMetadata().getName() + "-devspace";
             Route route = new RouteBuilder()
-                    .withMetadata(DevspaceReconciler.createMetadata(primary, routeName))
+                    .withMetadata(DevspaceReconciler.createMetadataWithAnnotations(primary, routeName,
+                            "haproxy.router.openshift.io/timeout", pollTimeout + "s"))
                     .withNewSpec().withNewTo().withKind("Service").withName(devspaceServiceName(primary))
                     .endTo()
                     .withNewPort().withNewTargetPort("http").endPort()
@@ -179,7 +177,8 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
         } else if (exposePolicy == ExposePolicy.route) {
             String routeName = primary.getMetadata().getName() + "-devspace";
             Route route = new RouteBuilder()
-                    .withMetadata(DevspaceReconciler.createMetadata(primary, routeName))
+                    .withMetadata(DevspaceReconciler.createMetadataWithAnnotations(primary, routeName,
+                            "haproxy.router.openshift.io/timeout", pollTimeout + "s"))
                     .withNewSpec().withNewTo().withKind("Service").withName(devspaceServiceName(primary))
                     .endTo()
                     .withNewPort().withNewTargetPort("http").endPort()
@@ -225,8 +224,8 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
                     status.setError("Service does not exist");
                     return UpdateControl.updateStatus(devspace);
                 }
-                DevspaceConfig config = getDevspaceConfig(devspace);
-                AuthenticationType auth = config.getSpec().toAuthenticationType();
+                DevspaceConfigSpec config = getDevspaceConfig(devspace);
+                AuthenticationType auth = config.toAuthenticationType();
                 if (auth == AuthenticationType.secret) {
                     createSecret(devspace);
                 }
@@ -324,5 +323,19 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
                 .withNamespace(metadata.getNamespace())
                 .withLabels(Map.of("app.kubernetes.io/name", name))
                 .build();
+    }
+
+    static ObjectMeta createMetadataWithAnnotations(Devspace resource, String name, String... annotations) {
+        final var metadata = resource.getMetadata();
+        ObjectMetaBuilder builder = new ObjectMetaBuilder()
+                .withName(name)
+                .withNamespace(metadata.getNamespace())
+                .withLabels(Map.of("app.kubernetes.io/name", name));
+        Map<String, String> aMap = new HashMap<>();
+
+        for (int i = 0; i < annotations.length; i++) {
+            aMap.put(annotations[i], annotations[++i]);
+        }
+        return builder.withAnnotations(aMap).build();
     }
 }

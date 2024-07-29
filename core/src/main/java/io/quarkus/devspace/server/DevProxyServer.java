@@ -111,8 +111,7 @@ public class DevProxyServer {
             pollResponse.putHeader(RESPONSE_LINK, responsePath);
             pollResponse.putHeader(METHOD_HEADER, proxiedRequest.method().toString());
             pollResponse.putHeader(URI_HEADER, proxiedRequest.uri());
-            //sendBody(proxiedRequest, pollResponse);
-            pollResponse.end();
+            sendBody(proxiedRequest, pollResponse);
             log.info("Forward request to poller finished");
         }
     }
@@ -127,7 +126,6 @@ public class DevProxyServer {
         final Deque<RoutingContext> awaiting = new LinkedList<>();
         final Deque<Poller> awaitingPollers = new LinkedList<>();
         final Object pollLock = new Object();
-        public final Map context = new HashMap();
 
         List<RequestSessionMatcher> matchers = new ArrayList<>();
 
@@ -304,6 +302,14 @@ public class DevProxyServer {
     protected ServiceProxy service;
     protected Vertx vertx;
     protected ProxySessionAuth auth = new NoAuth();
+
+    public long getPollTimeout() {
+        return POLL_TIMEOUT;
+    }
+
+    public void setPollTimeout(long timeout) {
+        POLL_TIMEOUT = timeout;
+    }
 
     public void setAuth(ProxySessionAuth auth) {
         this.auth = auth;

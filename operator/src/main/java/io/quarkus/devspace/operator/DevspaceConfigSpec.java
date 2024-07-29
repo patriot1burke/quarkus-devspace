@@ -4,7 +4,6 @@ public class DevspaceConfigSpec {
     public static class ProxyDeployment {
         private String image;
         private String imagePullPolicy;
-        private String clientPathPrefix;
 
         public String getImage() {
             return image;
@@ -21,19 +20,12 @@ public class DevspaceConfigSpec {
         public void setImagePullPolicy(String imagePullPolicy) {
             this.imagePullPolicy = imagePullPolicy;
         }
-
-        public String getClientPathPrefix() {
-            return clientPathPrefix;
-        }
-
-        public void setClientPathPrefix(String clientPathPrefix) {
-            this.clientPathPrefix = clientPathPrefix;
-        }
     }
 
     private ProxyDeployment proxy;
 
     private String authType;
+    private Integer pollTimeoutSeconds;
     /**
      * manual
      * ingress
@@ -67,6 +59,14 @@ public class DevspaceConfigSpec {
         this.exposePolicy = exposePolicy;
     }
 
+    public Integer getPollTimeoutSeconds() {
+        return pollTimeoutSeconds;
+    }
+
+    public void setPollTimeoutSeconds(Integer pollTimeoutSeconds) {
+        this.pollTimeoutSeconds = pollTimeoutSeconds;
+    }
+
     public AuthenticationType toAuthenticationType() {
         if (authType == null)
             return AuthenticationType.secret;
@@ -77,5 +77,38 @@ public class DevspaceConfigSpec {
         if (exposePolicy == null)
             return ExposePolicy.defaultPolicy;
         return ExposePolicy.valueOf(exposePolicy);
+    }
+
+    /**
+     * pull spec from config and set up default values if value not set
+     *
+     * @param config
+     * @return
+     */
+    public static DevspaceConfigSpec toDefaultedSpec(DevspaceConfig config) {
+        DevspaceConfigSpec spec = new DevspaceConfigSpec();
+        spec.pollTimeoutSeconds = 5;
+        spec.authType = AuthenticationType.secret.name();
+        spec.exposePolicy = ExposePolicy.defaultPolicy.name();
+        spec.setProxy(new ProxyDeployment());
+        spec.getProxy().setImage("io.quarkus/quarkus-devspace-proxy:latest");
+        spec.getProxy().setImagePullPolicy("Always");
+
+        if (config == null || config.getSpec() == null)
+            return spec;
+        DevspaceConfigSpec oldSpec = config.getSpec();
+        if (oldSpec.getPollTimeoutSeconds() != null)
+            spec.pollTimeoutSeconds = oldSpec.getPollTimeoutSeconds();
+        if (oldSpec.getAuthType() != null)
+            spec.authType = oldSpec.getAuthType();
+        if (oldSpec.getExposePolicy() != null)
+            spec.exposePolicy = oldSpec.getExposePolicy();
+        if (oldSpec.getProxy() != null) {
+            if (oldSpec.getProxy().getImage() != null)
+                spec.getProxy().setImage(oldSpec.getProxy().getImage());
+            if (oldSpec.getProxy().getImagePullPolicy() != null)
+                spec.getProxy().setImagePullPolicy(oldSpec.getProxy().getImagePullPolicy());
+        }
+        return spec;
     }
 }

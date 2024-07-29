@@ -41,6 +41,10 @@ public class QuarkusDevProxyServer {
     protected int clientApiPort;
 
     @Inject
+    @ConfigProperty(name = "poll.timeout", defaultValue = "5000")
+    protected int pollTimeout;
+
+    @Inject
     @ConfigProperty(name = "authentication.type", defaultValue = "NoAuth")
     protected String authType;
 
@@ -57,6 +61,7 @@ public class QuarkusDevProxyServer {
 
     public void start(@Observes StartupEvent start, Vertx vertx, Router proxyRouter) {
         proxyServer = new DevProxyServer();
+        proxyServer.setPollTimeout(pollTimeout);
         if (ProxySessionAuth.OPENSHIFT_BASIC_AUTH.equalsIgnoreCase(authType)) {
             log.info("Openshift Basic Auth: " + oauthUrl);
             proxyServer.setAuth(new OpenshiftBasicAuth(vertx, oauthUrl));
