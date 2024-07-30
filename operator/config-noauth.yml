@@ -5,5 +5,7 @@ metadata:
   namespace: quarkus
 spec:
   exposePolicy: secureRoute
+  authType: none
+  logLevel: DEBUG
   proxy:
     image: "default-route-openshift-image-registry.apps-crc.testing/default/quarkus-devspace-proxy:latest"

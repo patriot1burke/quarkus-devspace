@@ -1,6 +1,6 @@
 package io.quarkus.devspace.operator;
 
-import static io.javaoperatorsdk.operator.api.reconciler.Constants.WATCH_CURRENT_NAMESPACE;
+import static io.javaoperatorsdk.operator.api.reconciler.Constants.WATCH_ALL_NAMESPACES;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -29,7 +29,7 @@ import io.javaoperatorsdk.operator.api.reconciler.Reconciler;
 import io.javaoperatorsdk.operator.api.reconciler.UpdateControl;
 import io.quarkiverse.operatorsdk.annotations.CSVMetadata;
 
-@ControllerConfiguration(namespaces = WATCH_CURRENT_NAMESPACE, name = "devspace")
+@ControllerConfiguration(namespaces = WATCH_ALL_NAMESPACES, name = "devspace")
 @CSVMetadata(displayName = "Devspace operator", description = "Setup of Devspace for a specific service")
 public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspace> {
     protected static final Logger log = Logger.getLogger(DevspaceReconciler.class);
@@ -40,11 +40,13 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
     private DevspaceConfigSpec getDevspaceConfig(Devspace primary) {
         MixedOperation<DevspaceConfig, KubernetesResourceList<DevspaceConfig>, Resource<DevspaceConfig>> configs = client
                 .resources(DevspaceConfig.class);
+        String configNamespace = "quarkus";
         String configName = "global";
         if (primary.getSpec() != null && primary.getSpec().getConfig() != null) {
             configName = primary.getSpec().getConfig();
+            configNamespace = primary.getMetadata().getNamespace();
         }
-        DevspaceConfig config = configs.inNamespace(primary.getMetadata().getNamespace()).withName(configName).get();
+        DevspaceConfig config = configs.inNamespace(configNamespace).withName(configName).get();
         return DevspaceConfigSpec.toDefaultedSpec(config);
     }
 
@@ -119,7 +121,8 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
         Map<String, String> selector = null;
         if (primary.getStatus() == null || primary.getStatus().getOldSelectors() == null
                 || primary.getStatus().getOldSelectors().isEmpty()) {
-            selector = client.services().withName(serviceName).get().getSpec().getSelector();
+            selector = client.services().inNamespace(primary.getMetadata().getNamespace()).withName(serviceName).get().getSpec()
+                    .getSelector();
         } else {
             selector = primary.getStatus().getOldSelectors();
         }
@@ -228,7 +231,8 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
             DevspaceStatus status = new DevspaceStatus();
             devspace.setStatus(status);
             try {
-                ServiceResource<Service> serviceResource = client.services().withName(devspace.getMetadata().getName());
+                ServiceResource<Service> serviceResource = client.services().inNamespace(devspace.getMetadata().getNamespace())
+                        .withName(devspace.getMetadata().getName());
                 Service service = serviceResource.get();
                 if (service == null) {
                     status.setError("Service does not exist");
@@ -314,7 +318,8 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
     }
 
     public static void resetServiceSelector(KubernetesClient client, Devspace devspace) {
-        ServiceResource<Service> serviceResource = client.services().withName(devspace.getMetadata().getName());
+        ServiceResource<Service> serviceResource = client.services().inNamespace(devspace.getMetadata().getNamespace())
+                .withName(devspace.getMetadata().getName());
         UnaryOperator<Service> edit = (s) -> {
             return new ServiceBuilder(s)
                     .editSpec()

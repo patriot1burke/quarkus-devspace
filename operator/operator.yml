@@ -1,21 +1,25 @@
 ---
 apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app.kubernetes.io/part-of: quarkus-devspace
+  name: quarkus
+---
+apiVersion: v1
 kind: ServiceAccount
 metadata:
-  annotations:
-    app.quarkus.io/quarkus-version: 3.11.0
-    app.quarkus.io/commit-id: 2bb0280275625c12023981fc89a487438c12dd04
-    app.quarkus.io/vcs-uri: https://github.com/patriot1burke/quarkus-devspace.git
-    app.quarkus.io/build-timestamp: 2024-07-25 - 20:21:15 +0000
   labels:
+    app.kubernetes.io/part-of: quarkus-devspace
     app.kubernetes.io/name: quarkus-devspace-operator
-    app.kubernetes.io/version: 999-SNAPSHOT
-    app.kubernetes.io/managed-by: quarkus
   name: quarkus-devspace-operator
+  namespace: quarkus
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  labels:
+    app.kubernetes.io/part-of: quarkus-devspace
   name: devspaceconfig-cluster-role
 rules:
   - apiGroups:
@@ -36,6 +40,8 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  labels:
+    app.kubernetes.io/part-of: quarkus-devspace
   name: devspace-cluster-role
 rules:
   - apiGroups:
@@ -82,6 +88,8 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  labels:
+    app.kubernetes.io/part-of: quarkus-devspace
   annotations:
     app.dekorate.io/commit-id: 2bb0280275625c12023981fc89a487438c12dd04
   name: josdk-crd-validating-cluster-role
@@ -97,6 +105,9 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
+  labels:
+    app.kubernetes.io/name: quarkus-devspace-operator
+    app.kubernetes.io/part-of: quarkus-devspace
   name: devspaceconfig-crd-validating-role-binding
 roleRef:
   kind: ClusterRole
@@ -105,11 +116,14 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: quarkus-devspace-operator
-    namespace: default
+    namespace: quarkus
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
+  labels:
+    app.kubernetes.io/name: quarkus-devspace-operator
+    app.kubernetes.io/part-of: quarkus-devspace
   name: devspace-crd-validating-role-binding
 roleRef:
   kind: ClusterRole
@@ -118,11 +132,14 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: quarkus-devspace-operator
-    namespace: default
+    namespace: quarkus
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
+kind: ClusterRoleBinding
 metadata:
+  labels:
+    app.kubernetes.io/name: quarkus-devspace-operator
+    app.kubernetes.io/part-of: quarkus-devspace
   name: devspaceconfig-role-binding
 roleRef:
   kind: ClusterRole
@@ -131,10 +148,14 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: quarkus-devspace-operator
+    namespace: quarkus
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
+kind: ClusterRoleBinding
 metadata:
+  labels:
+    app.kubernetes.io/name: quarkus-devspace-operator
+    app.kubernetes.io/part-of: quarkus-devspace
   name: devspace-role-binding
 roleRef:
   kind: ClusterRole
@@ -143,13 +164,14 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: quarkus-devspace-operator
+    namespace: quarkus
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
+kind: ClusterRoleBinding
 metadata:
   labels:
     app.kubernetes.io/name: quarkus-devspace-operator
-    app.kubernetes.io/version: 999-SNAPSHOT
+    app.kubernetes.io/part-of: quarkus-devspace
   name: quarkus-devspace-operator-view
 roleRef:
   kind: ClusterRole
@@ -158,20 +180,17 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: quarkus-devspace-operator
+    namespace: quarkus
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  annotations:
-    app.quarkus.io/quarkus-version: 3.11.0
-    app.quarkus.io/commit-id: 2bb0280275625c12023981fc89a487438c12dd04
-    app.quarkus.io/vcs-uri: https://github.com/patriot1burke/quarkus-devspace.git
-    app.quarkus.io/build-timestamp: 2024-07-25 - 20:21:15 +0000
   labels:
     app.kubernetes.io/name: quarkus-devspace-operator
     app.kubernetes.io/version: 999-SNAPSHOT
-    app.kubernetes.io/managed-by: quarkus
+    app.kubernetes.io/part-of: quarkus-devspace
   name: quarkus-devspace-operator
+  namespace: quarkus
 spec:
   ports:
     - name: http
@@ -185,16 +204,12 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  annotations:
-    app.quarkus.io/quarkus-version: 3.11.0
-    app.quarkus.io/commit-id: 2bb0280275625c12023981fc89a487438c12dd04
-    app.quarkus.io/vcs-uri: https://github.com/patriot1burke/quarkus-devspace.git
-    app.quarkus.io/build-timestamp: 2024-07-25 - 20:21:15 +0000
   labels:
     app.kubernetes.io/name: quarkus-devspace-operator
     app.kubernetes.io/version: 999-SNAPSHOT
-    app.kubernetes.io/managed-by: quarkus
+    app.kubernetes.io/part-of: quarkus-devspace
   name: quarkus-devspace-operator
+  namespace: quarkus
 spec:
   replicas: 1
   selector:
