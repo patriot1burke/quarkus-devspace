@@ -1,6 +1,6 @@
 package io.quarkiverse.playpen.server.auth;
 
-import io.quarkiverse.playpen.server.DevProxyServer;
+import io.quarkiverse.playpen.server.PlaypenServer;
 import io.vertx.ext.web.RoutingContext;
 
 public class NoAuth implements ProxySessionAuth {
@@ -10,12 +10,12 @@ public class NoAuth implements ProxySessionAuth {
     }
 
     @Override
-    public boolean authorized(RoutingContext ctx, DevProxyServer.ProxySession session) {
+    public boolean authorized(RoutingContext ctx, PlaypenServer.ProxySession session) {
         return true;
     }
 
     @Override
-    public void propagateToken(RoutingContext ctx, DevProxyServer.ProxySession session) {
+    public void propagateToken(RoutingContext ctx, PlaypenServer.ProxySession session) {
 
     }
 }

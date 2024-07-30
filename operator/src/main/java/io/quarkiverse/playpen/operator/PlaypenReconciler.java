@@ -29,22 +29,22 @@ import io.javaoperatorsdk.operator.api.reconciler.Reconciler;
 import io.javaoperatorsdk.operator.api.reconciler.UpdateControl;
 import io.quarkiverse.operatorsdk.annotations.CSVMetadata;
 
-@ControllerConfiguration(namespaces = WATCH_ALL_NAMESPACES, name = "devspace")
-@CSVMetadata(displayName = "Devspace operator", description = "Setup of Devspace for a specific service")
-public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspace> {
-    protected static final Logger log = Logger.getLogger(DevspaceReconciler.class);
+@ControllerConfiguration(namespaces = WATCH_ALL_NAMESPACES, name = "playpen")
+@CSVMetadata(displayName = "Playpen operator", description = "Setup of Playpen for a specific service")
+public class PlaypenReconciler implements Reconciler<Playpen>, Cleaner<Playpen> {
+    protected static final Logger log = Logger.getLogger(PlaypenReconciler.class);
 
     @Inject
     OpenShiftClient client;
 
-    private DevspaceConfigSpec getDevspaceConfig(Devspace primary) {
-        DevspaceConfig config = findDevspaceConfig(primary);
+    private PlaypenConfigSpec getDevspaceConfig(Playpen primary) {
+        PlaypenConfig config = findDevspaceConfig(primary);
         return toDefaultedSpec(config);
     }
 
-    private DevspaceConfig findDevspaceConfig(Devspace primary) {
-        MixedOperation<DevspaceConfig, KubernetesResourceList<DevspaceConfig>, Resource<DevspaceConfig>> configs = client
-                .resources(DevspaceConfig.class);
+    private PlaypenConfig findDevspaceConfig(Playpen primary) {
+        MixedOperation<PlaypenConfig, KubernetesResourceList<PlaypenConfig>, Resource<PlaypenConfig>> configs = client
+                .resources(PlaypenConfig.class);
         String configNamespace = "quarkus";
         String configName = "global";
         if (primary.getSpec() != null && primary.getSpec().getConfig() != null) {
@@ -54,22 +54,22 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
                 configNamespace = primary.getSpec().getConfigNamespace();
             }
         }
-        DevspaceConfig config = configs.inNamespace(configNamespace).withName(configName).get();
+        PlaypenConfig config = configs.inNamespace(configNamespace).withName(configName).get();
         return config;
     }
 
-    public static String devspaceDeployment(Devspace primary) {
+    public static String devspaceDeployment(Playpen primary) {
         return primary.getMetadata().getName() + "-devspace";
     }
 
-    private void createProxyDeployment(Devspace primary, DevspaceConfigSpec config, AuthenticationType auth) {
+    private void createProxyDeployment(Playpen primary, PlaypenConfigSpec config, AuthenticationType auth) {
         String serviceName = primary.getMetadata().getName();
         String name = devspaceDeployment(primary);
         String image = config.getProxy().getImage();
         String imagePullPolicy = config.getProxy().getImagePullPolicy();
 
         var container = new DeploymentBuilder()
-                .withMetadata(DevspaceReconciler.createMetadata(primary, name))
+                .withMetadata(PlaypenReconciler.createMetadata(primary, name))
                 .withNewSpec()
                 .withReplicas(1)
                 .withNewSelector()
@@ -115,15 +115,15 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
                 .endSpec()
                 .build();
         client.apps().deployments().resource(deployment).serverSideApply();
-        primary.getStatus().getCleanup().add(0, new DevspaceStatus.CleanupResource("deployment", name));
+        primary.getStatus().getCleanup().add(0, new PlaypenStatus.CleanupResource("deployment", name));
 
     }
 
-    public static String origin(Devspace primary) {
+    public static String origin(Playpen primary) {
         return primary.getMetadata().getName() + "-origin";
     }
 
-    private void createOriginService(Devspace primary, DevspaceConfigSpec config) {
+    private void createOriginService(Playpen primary, PlaypenConfigSpec config) {
         String serviceName = primary.getMetadata().getName();
         String name = origin(primary);
         Map<String, String> selector = null;
@@ -135,7 +135,7 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
             selector = primary.getStatus().getOldSelectors();
         }
         Service service = new ServiceBuilder()
-                .withMetadata(DevspaceReconciler.createMetadata(primary, name))
+                .withMetadata(PlaypenReconciler.createMetadata(primary, name))
                 .withNewSpec()
                 .addNewPort()
                 .withName("http")
@@ -147,18 +147,18 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
                 .withType("ClusterIP")
                 .endSpec().build();
         client.resource(service).serverSideApply();
-        primary.getStatus().getCleanup().add(0, new DevspaceStatus.CleanupResource("service", name));
+        primary.getStatus().getCleanup().add(0, new PlaypenStatus.CleanupResource("service", name));
     }
 
-    private static String devspaceServiceName(Devspace primary) {
+    private static String devspaceServiceName(Playpen primary) {
         return primary.getMetadata().getName() + "-devspace";
     }
 
-    private void createClientService(Devspace primary, DevspaceConfigSpec config) {
+    private void createClientService(Playpen primary, PlaypenConfigSpec config) {
         String name = devspaceServiceName(primary);
         ExposePolicy exposePolicy = config.toExposePolicy();
         var spec = new ServiceBuilder()
-                .withMetadata(DevspaceReconciler.createMetadata(primary, name))
+                .withMetadata(PlaypenReconciler.createMetadata(primary, name))
                 .withNewSpec();
         if (exposePolicy == ExposePolicy.nodePort || (primary.getSpec() != null && primary.getSpec().getNodePort() != null)) {
             spec.withType("NodePort");
@@ -186,7 +186,7 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
         if (exposePolicy == ExposePolicy.secureRoute) {
             String routeName = primary.getMetadata().getName() + "-devspace";
             Route route = new RouteBuilder()
-                    .withMetadata(DevspaceReconciler.createMetadataWithAnnotations(primary, routeName,
+                    .withMetadata(PlaypenReconciler.createMetadataWithAnnotations(primary, routeName,
                             "haproxy.router.openshift.io/timeout", routerTimeout + "s"))
                     .withNewSpec().withNewTo().withKind("Service").withName(devspaceServiceName(primary))
                     .endTo()
@@ -194,20 +194,20 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
                     .withNewTls().withTermination("edge").withInsecureEdgeTerminationPolicy("Redirect").endTls()
                     .endSpec().build();
             client.adapt(OpenShiftClient.class).routes().resource(route).serverSideApply();
-            primary.getStatus().getCleanup().add(0, new DevspaceStatus.CleanupResource("route", routeName));
+            primary.getStatus().getCleanup().add(0, new PlaypenStatus.CleanupResource("route", routeName));
         } else if (exposePolicy == ExposePolicy.route) {
             String routeName = primary.getMetadata().getName() + "-devspace";
             Route route = new RouteBuilder()
-                    .withMetadata(DevspaceReconciler.createMetadataWithAnnotations(primary, routeName,
+                    .withMetadata(PlaypenReconciler.createMetadataWithAnnotations(primary, routeName,
                             "haproxy.router.openshift.io/timeout", routerTimeout + "s"))
                     .withNewSpec().withNewTo().withKind("Service").withName(devspaceServiceName(primary))
                     .endTo()
                     .withNewPort().withNewTargetPort("http").endPort()
                     .endSpec().build();
             client.adapt(OpenShiftClient.class).routes().resource(route).serverSideApply();
-            primary.getStatus().getCleanup().add(0, new DevspaceStatus.CleanupResource("route", routeName));
+            primary.getStatus().getCleanup().add(0, new PlaypenStatus.CleanupResource("route", routeName));
         }
-        primary.getStatus().getCleanup().add(0, new DevspaceStatus.CleanupResource("service", name));
+        primary.getStatus().getCleanup().add(0, new PlaypenStatus.CleanupResource("service", name));
     }
 
     private boolean isOpenshift() {
@@ -218,50 +218,50 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
         return false;
     }
 
-    private static String devspaceSecret(Devspace primary) {
+    private static String devspaceSecret(Playpen primary) {
         return primary.getMetadata().getName() + "-devspace-auth";
     }
 
-    private void createSecret(Devspace devspace) {
-        String name = devspaceSecret(devspace);
+    private void createSecret(Playpen playpen) {
+        String name = devspaceSecret(playpen);
         String password = RandomStringUtils.randomAlphabetic(10);
         Secret secret = new SecretBuilder()
-                .withMetadata(DevspaceReconciler.createMetadata(devspace, name))
+                .withMetadata(PlaypenReconciler.createMetadata(playpen, name))
                 .addToStringData("password", password)
                 .build();
         client.secrets().resource(secret).serverSideApply();
-        devspace.getStatus().getCleanup().add(0, new DevspaceStatus.CleanupResource("secret", name));
+        playpen.getStatus().getCleanup().add(0, new PlaypenStatus.CleanupResource("secret", name));
     }
 
     @Override
-    public UpdateControl<Devspace> reconcile(Devspace devspace, Context<Devspace> context) {
-        if (devspace.getStatus() == null) {
+    public UpdateControl<Playpen> reconcile(Playpen playpen, Context<Playpen> context) {
+        if (playpen.getStatus() == null) {
             log.info("reconcile");
-            DevspaceStatus status = new DevspaceStatus();
-            devspace.setStatus(status);
+            PlaypenStatus status = new PlaypenStatus();
+            playpen.setStatus(status);
             try {
-                ServiceResource<Service> serviceResource = client.services().inNamespace(devspace.getMetadata().getNamespace())
-                        .withName(devspace.getMetadata().getName());
+                ServiceResource<Service> serviceResource = client.services().inNamespace(playpen.getMetadata().getNamespace())
+                        .withName(playpen.getMetadata().getName());
                 Service service = serviceResource.get();
                 if (service == null) {
                     status.setError("Service does not exist");
-                    return UpdateControl.updateStatus(devspace);
+                    return UpdateControl.updateStatus(playpen);
                 }
-                DevspaceConfig config = findDevspaceConfig(devspace);
-                DevspaceConfigSpec configSpec = getDevspaceConfig(devspace);
+                PlaypenConfig config = findDevspaceConfig(playpen);
+                PlaypenConfigSpec configSpec = getDevspaceConfig(playpen);
                 AuthenticationType auth = configSpec.toAuthenticationType();
                 if (auth == AuthenticationType.secret) {
-                    createSecret(devspace);
+                    createSecret(playpen);
                 }
-                createProxyDeployment(devspace, configSpec, auth);
-                createOriginService(devspace, configSpec);
-                createClientService(devspace, configSpec);
+                createProxyDeployment(playpen, configSpec, auth);
+                createOriginService(playpen, configSpec);
+                createClientService(playpen, configSpec);
 
                 Map<String, String> oldSelectors = new HashMap<>();
                 oldSelectors.putAll(service.getSpec().getSelector());
                 status.setOldSelectors(oldSelectors);
                 status.setOldExternalTrafficPolicy(service.getSpec().getExternalTrafficPolicy());
-                String proxyDeploymentName = devspaceDeployment(devspace);
+                String proxyDeploymentName = devspaceDeployment(playpen);
                 UnaryOperator<Service> edit = (s) -> {
                     ServiceBuilder builder = new ServiceBuilder(s);
                     ServiceFluent<ServiceBuilder>.SpecNested<ServiceBuilder> spec = builder.editSpec();
@@ -276,19 +276,19 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
 
                 status.setCreated(true);
                 if (config != null) {
-                    devspace.getMetadata().getLabels().put("io.quarkus.devspace/config",
+                    playpen.getMetadata().getLabels().put("io.quarkus.devspace/config",
                             config.getMetadata().getNamespace() + "-" + config.getMetadata().getName());
-                    return UpdateControl.updateResourceAndStatus(devspace);
+                    return UpdateControl.updateResourceAndStatus(playpen);
                 } else {
-                    return UpdateControl.updateStatus(devspace);
+                    return UpdateControl.updateStatus(playpen);
                 }
             } catch (RuntimeException e) {
                 status.setError(e.getMessage());
-                log.error("Error creating devspace " + devspace.getMetadata().getName(), e);
-                return UpdateControl.updateStatus(devspace);
+                log.error("Error creating devspace " + playpen.getMetadata().getName(), e);
+                return UpdateControl.updateStatus(playpen);
             }
         } else {
-            return UpdateControl.<Devspace> noUpdate();
+            return UpdateControl.<Playpen> noUpdate();
         }
     }
 
@@ -301,30 +301,30 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
     }
 
     @Override
-    public DeleteControl cleanup(Devspace devspace, Context<Devspace> context) {
+    public DeleteControl cleanup(Playpen playpen, Context<Playpen> context) {
         log.info("cleanup");
-        if (devspace.getStatus() == null) {
+        if (playpen.getStatus() == null) {
             return DeleteControl.defaultDelete();
         }
-        if (devspace.getStatus().getOldSelectors() != null && !devspace.getStatus().getOldSelectors().isEmpty()) {
-            resetServiceSelector(client, devspace);
+        if (playpen.getStatus().getOldSelectors() != null && !playpen.getStatus().getOldSelectors().isEmpty()) {
+            resetServiceSelector(client, playpen);
         }
-        if (devspace.getStatus().getCleanup() != null) {
-            for (DevspaceStatus.CleanupResource cleanup : devspace.getStatus().getCleanup()) {
+        if (playpen.getStatus().getCleanup() != null) {
+            for (PlaypenStatus.CleanupResource cleanup : playpen.getStatus().getCleanup()) {
                 log.info("Cleanup: " + cleanup.getType() + " " + cleanup.getName());
                 if (cleanup.getType().equals("secret")) {
-                    suppress(() -> client.secrets().inNamespace(devspace.getMetadata().getNamespace())
+                    suppress(() -> client.secrets().inNamespace(playpen.getMetadata().getNamespace())
                             .withName(cleanup.getName())
                             .delete());
                 } else if (cleanup.getType().equals("route")) {
                     suppress(() -> client.adapt(OpenShiftClient.class).routes()
-                            .inNamespace(devspace.getMetadata().getNamespace())
+                            .inNamespace(playpen.getMetadata().getNamespace())
                             .withName(cleanup.getName()).delete());
                 } else if (cleanup.getType().equals("service")) {
-                    suppress(() -> client.services().inNamespace(devspace.getMetadata().getNamespace())
+                    suppress(() -> client.services().inNamespace(playpen.getMetadata().getNamespace())
                             .withName(cleanup.getName()).delete());
                 } else if (cleanup.getType().equals("deployment")) {
-                    suppress(() -> client.apps().deployments().inNamespace(devspace.getMetadata().getNamespace())
+                    suppress(() -> client.apps().deployments().inNamespace(playpen.getMetadata().getNamespace())
                             .withName(cleanup.getName()).delete());
                 }
             }
@@ -333,21 +333,21 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
         return DeleteControl.defaultDelete();
     }
 
-    public static void resetServiceSelector(KubernetesClient client, Devspace devspace) {
-        ServiceResource<Service> serviceResource = client.services().inNamespace(devspace.getMetadata().getNamespace())
-                .withName(devspace.getMetadata().getName());
+    public static void resetServiceSelector(KubernetesClient client, Playpen playpen) {
+        ServiceResource<Service> serviceResource = client.services().inNamespace(playpen.getMetadata().getNamespace())
+                .withName(playpen.getMetadata().getName());
         UnaryOperator<Service> edit = (s) -> {
             return new ServiceBuilder(s)
                     .editSpec()
-                    .withSelector(devspace.getStatus().getOldSelectors())
-                    .withExternalTrafficPolicy(devspace.getStatus().getOldExternalTrafficPolicy())
+                    .withSelector(playpen.getStatus().getOldSelectors())
+                    .withExternalTrafficPolicy(playpen.getStatus().getOldExternalTrafficPolicy())
                     .endSpec().build();
 
         };
         serviceResource.edit(edit);
     }
 
-    static ObjectMeta createMetadata(Devspace resource, String name) {
+    static ObjectMeta createMetadata(Playpen resource, String name) {
         final var metadata = resource.getMetadata();
         return new ObjectMetaBuilder()
                 .withName(name)
@@ -356,7 +356,7 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
                 .build();
     }
 
-    static ObjectMeta createMetadataWithAnnotations(Devspace resource, String name, String... annotations) {
+    static ObjectMeta createMetadataWithAnnotations(Playpen resource, String name, String... annotations) {
         final var metadata = resource.getMetadata();
         ObjectMetaBuilder builder = new ObjectMetaBuilder()
                 .withName(name)
@@ -376,8 +376,8 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
      * @param config
      * @return
      */
-    public DevspaceConfigSpec toDefaultedSpec(DevspaceConfig config) {
-        DevspaceConfigSpec spec = new DevspaceConfigSpec();
+    public PlaypenConfigSpec toDefaultedSpec(PlaypenConfig config) {
+        PlaypenConfigSpec spec = new PlaypenConfigSpec();
         spec.setPollTimeoutSeconds(5);
         spec.setAuthType(AuthenticationType.secret.name());
         if (isOpenshift()) {
@@ -385,7 +385,7 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
         } else {
             spec.setExposePolicy(ExposePolicy.nodePort.name());
         }
-        spec.setProxy(new DevspaceConfigSpec.ProxyDeployment());
+        spec.setProxy(new PlaypenConfigSpec.ProxyDeployment());
         spec.getProxy().setImage("io.quarkus/quarkus-devspace-proxy:latest");
         spec.getProxy().setImagePullPolicy("Always");
         spec.setIdleTimeoutSeconds(60);
@@ -394,7 +394,7 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
         if (config == null || config.getSpec() == null)
             return spec;
 
-        DevspaceConfigSpec oldSpec = config.getSpec();
+        PlaypenConfigSpec oldSpec = config.getSpec();
         spec.setLogLevel(oldSpec.getLogLevel());
         if (oldSpec.getPollTimeoutSeconds() != null)
             spec.setPollTimeoutSeconds(oldSpec.getPollTimeoutSeconds());

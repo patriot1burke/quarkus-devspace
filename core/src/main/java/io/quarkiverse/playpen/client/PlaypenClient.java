@@ -3,23 +3,23 @@ package io.quarkiverse.playpen.client;
 import java.util.concurrent.TimeoutException;
 
 import io.quarkiverse.playpen.ProxyUtils;
-import io.quarkiverse.playpen.server.DevProxyServer;
+import io.quarkiverse.playpen.server.PlaypenServer;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientRequest;
 import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.http.HttpMethod;
 
-public class DevProxyClient extends AbstractDevProxyClient {
+public class PlaypenClient extends AbstractPlaypenClient {
 
     protected HttpClient serviceClient;
 
-    protected DevProxyClient() {
+    protected PlaypenClient() {
 
     }
 
-    public static DevProxyClientBuilder create(Vertx vertx) {
-        return new DevProxyClientBuilder(vertx);
+    public static PlaypenClientBuilder create(Vertx vertx) {
+        return new PlaypenClientBuilder(vertx);
     }
 
     @Override
@@ -30,12 +30,12 @@ public class DevProxyClient extends AbstractDevProxyClient {
 
     @Override
     protected void processPoll(HttpClientResponse pollResponse) {
-        String method = pollResponse.getHeader(DevProxyServer.METHOD_HEADER);
-        String uri = pollResponse.getHeader(DevProxyServer.URI_HEADER);
+        String method = pollResponse.getHeader(PlaypenServer.METHOD_HEADER);
+        String uri = pollResponse.getHeader(PlaypenServer.URI_HEADER);
         serviceClient.request(HttpMethod.valueOf(method), uri)
                 .onFailure(exc -> {
                     log.error("Service connect failure", exc);
-                    String responsePath = pollResponse.getHeader(DevProxyServer.RESPONSE_LINK);
+                    String responsePath = pollResponse.getHeader(PlaypenServer.RESPONSE_LINK);
                     deletePushResponse(responsePath);
                 })
                 .onSuccess(serviceRequest -> {
@@ -46,12 +46,12 @@ public class DevProxyClient extends AbstractDevProxyClient {
     private void invokeService(HttpClientResponse pollResponse, HttpClientRequest serviceRequest) {
         log.debug("**** INVOKE SERVICE ****");
         serviceRequest.setTimeout(1000 * 1000); // long timeout as there might be a debugger session
-        String responsePath = pollResponse.getHeader(DevProxyServer.RESPONSE_LINK);
+        String responsePath = pollResponse.getHeader(PlaypenServer.RESPONSE_LINK);
         pollResponse.headers().forEach((key, val) -> {
             log.debugv("Poll response header: {0} : {1}", key, val);
-            int idx = key.indexOf(DevProxyServer.HEADER_FORWARD_PREFIX);
+            int idx = key.indexOf(PlaypenServer.HEADER_FORWARD_PREFIX);
             if (idx == 0) {
-                String headerName = key.substring(DevProxyServer.HEADER_FORWARD_PREFIX.length());
+                String headerName = key.substring(PlaypenServer.HEADER_FORWARD_PREFIX.length());
                 serviceRequest.headers().add(headerName, val);
             } else if (key.equalsIgnoreCase("Content-Length")) {
                 serviceRequest.headers().add("Content-Length", val);
@@ -91,9 +91,9 @@ public class DevProxyClient extends AbstractDevProxyClient {
                 .onSuccess(pushRequest -> {
                     setToken(pushRequest);
                     pushRequest.setTimeout(pollTimeoutMillis);
-                    pushRequest.putHeader(DevProxyServer.STATUS_CODE_HEADER, Integer.toString(serviceResponse.statusCode()));
+                    pushRequest.putHeader(PlaypenServer.STATUS_CODE_HEADER, Integer.toString(serviceResponse.statusCode()));
                     serviceResponse.headers()
-                            .forEach((key, val) -> pushRequest.headers().add(DevProxyServer.HEADER_FORWARD_PREFIX + key, val));
+                            .forEach((key, val) -> pushRequest.headers().add(PlaypenServer.HEADER_FORWARD_PREFIX + key, val));
                     pushRequest.send(serviceResponse)
                             .onFailure(exc -> {
                                 if (exc instanceof TimeoutException) {

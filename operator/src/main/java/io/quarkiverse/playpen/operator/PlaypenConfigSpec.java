@@ -1,6 +1,6 @@
 package io.quarkiverse.playpen.operator;
 
-public class DevspaceConfigSpec {
+public class PlaypenConfigSpec {
     public static class ProxyDeployment {
         private String image;
         private String imagePullPolicy;

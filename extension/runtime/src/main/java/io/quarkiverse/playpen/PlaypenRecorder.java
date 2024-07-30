@@ -4,23 +4,23 @@ import java.util.function.Supplier;
 
 import org.jboss.logging.Logger;
 
-import io.quarkiverse.playpen.client.DevspaceConnectionConfig;
+import io.quarkiverse.playpen.client.PlaypenConnectionConfig;
 import io.quarkus.runtime.ShutdownContext;
 import io.quarkus.runtime.annotations.Recorder;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClientOptions;
 
 @Recorder
-public class DevSpaceProxyRecorder {
-    private static final Logger log = Logger.getLogger(DevSpaceProxyRecorder.class);
+public class PlaypenRecorder {
+    private static final Logger log = Logger.getLogger(PlaypenRecorder.class);
 
-    static VirtualDevpaceProxyClient client;
-    public static DevspaceConnectionConfig config;
+    static VirtualPlaypenClient client;
+    public static PlaypenConnectionConfig config;
     static Vertx vertx;
 
-    public void init(Supplier<Vertx> vertx, ShutdownContext shutdown, DevspaceConnectionConfig c, boolean delayConnect) {
+    public void init(Supplier<Vertx> vertx, ShutdownContext shutdown, PlaypenConnectionConfig c, boolean delayConnect) {
         config = c;
-        DevSpaceProxyRecorder.vertx = vertx.get();
+        PlaypenRecorder.vertx = vertx.get();
         if (!delayConnect) {
             startSession(c);
             shutdown.addShutdownTask(() -> {
@@ -33,8 +33,8 @@ public class DevSpaceProxyRecorder {
         startSession(config);
     }
 
-    public static void startSession(DevspaceConnectionConfig config) {
-        client = new VirtualDevpaceProxyClient();
+    public static void startSession(PlaypenConnectionConfig config) {
+        client = new VirtualPlaypenClient();
         HttpClientOptions options = new HttpClientOptions();
         options.setDefaultHost(config.host);
         options.setDefaultPort(config.port);

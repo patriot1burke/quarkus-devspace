@@ -1,6 +1,6 @@
 package io.quarkiverse.playpen.server.auth;
 
-import io.quarkiverse.playpen.server.DevProxyServer;
+import io.quarkiverse.playpen.server.PlaypenServer;
 import io.vertx.ext.web.RoutingContext;
 
 public interface ProxySessionAuth {
@@ -28,11 +28,11 @@ public interface ProxySessionAuth {
      * @param session
      * @return
      */
-    default boolean authorized(RoutingContext ctx, DevProxyServer.ProxySession session) {
+    default boolean authorized(RoutingContext ctx, PlaypenServer.ProxySession session) {
         return session.validateToken(ctx);
     }
 
-    default void propagateToken(RoutingContext ctx, DevProxyServer.ProxySession session) {
+    default void propagateToken(RoutingContext ctx, PlaypenServer.ProxySession session) {
         ctx.response().putHeader(BEARER_TOKEN_HEADER, "Bearer " + session.getToken());
 
     }

@@ -1,6 +1,6 @@
 package io.quarkiverse.playpen.operator;
 
-public class DevspaceSpec {
+public class PlaypenSpec {
     private String config;
     private String configNamespace;
     private Integer nodePort;

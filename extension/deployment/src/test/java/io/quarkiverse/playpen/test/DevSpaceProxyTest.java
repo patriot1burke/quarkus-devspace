@@ -14,9 +14,9 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import io.quarkiverse.playpen.DevSpaceProxyRecorder;
+import io.quarkiverse.playpen.PlaypenRecorder;
 import io.quarkiverse.playpen.ProxyUtils;
-import io.quarkiverse.playpen.server.DevProxyServer;
+import io.quarkiverse.playpen.server.PlaypenServer;
 import io.quarkiverse.playpen.server.ServiceConfig;
 import io.quarkus.test.QuarkusUnitTest;
 import io.vertx.core.Vertx;
@@ -41,7 +41,7 @@ public class DevSpaceProxyTest {
                     .addAsResource(new StringAsset(APP_PROPS), "application.properties")
                     .addClasses(RouteProducer.class));
 
-    public static DevProxyServer proxyServer;
+    public static PlaypenServer proxyServer;
     public static HttpServer proxy;
 
     static HttpServer myService;
@@ -75,7 +75,7 @@ public class DevSpaceProxyTest {
         }).listen(SERVICE_PORT));
 
         proxy = vertx.createHttpServer();
-        proxyServer = new DevProxyServer();
+        proxyServer = new PlaypenServer();
         Router proxyRouter = Router.router(vertx);
         ServiceConfig config = new ServiceConfig("my-service", "localhost", SERVICE_PORT);
         proxyServer.init(vertx, proxyRouter, proxyRouter, config);
@@ -160,7 +160,7 @@ public class DevSpaceProxyTest {
     public void testGlobalSession() throws Exception {
 
         try {
-            DevSpaceProxyRecorder.startSession();
+            PlaypenRecorder.startSession();
             System.out.println("------------------ POST REQUEST BODY ---------------------");
             given()
                     .when()
@@ -191,7 +191,7 @@ public class DevSpaceProxyTest {
                     .contentType(equalTo("text/plain"))
                     .body(equalTo("local"));
         } finally {
-            DevSpaceProxyRecorder.closeSession();
+            PlaypenRecorder.closeSession();
         }
         System.out.println("-------------------- After Shutdown GET REQUEST --------------------");
         given()

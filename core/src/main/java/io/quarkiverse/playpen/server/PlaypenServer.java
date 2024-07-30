@@ -28,14 +28,14 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.httpproxy.Body;
 import io.vertx.httpproxy.HttpProxy;
 
-public class DevProxyServer {
+public class PlaypenServer {
 
     public static final String VERSION = "1.0";
 
     public static AutoCloseable create(Vertx vertx, ServiceConfig config, int proxyPort, int clientApiPort) {
         HttpServer proxy = vertx.createHttpServer();
         HttpServer clientApi = vertx.createHttpServer();
-        DevProxyServer proxyServer = new DevProxyServer();
+        PlaypenServer proxyServer = new PlaypenServer();
         Router proxyRouter = Router.router(vertx);
         Router clientApiRouter = Router.router(vertx);
         proxyServer.init(vertx, proxyRouter, clientApiRouter, config);
@@ -327,7 +327,7 @@ public class DevProxyServer {
     protected long idleTimeout = 60000;
     protected long defaultPollTimeout = 5000;
     protected long timerPeriod = 1000;
-    protected static final Logger log = Logger.getLogger(DevProxyServer.class);
+    protected static final Logger log = Logger.getLogger(PlaypenServer.class);
     protected ServiceProxy service;
     protected Vertx vertx;
     protected ProxySessionAuth auth = new NoAuth();
@@ -427,7 +427,7 @@ public class DevProxyServer {
         if (len >= 0) {
             destination.putHeader(HttpHeaders.CONTENT_LENGTH, Long.toString(len));
         } else {
-            Boolean isChunked = DevProxyServer.isChunked(source.headers());
+            Boolean isChunked = PlaypenServer.isChunked(source.headers());
             destination.setChunked(len == -1 && Boolean.TRUE == isChunked);
         }
         Pipe<Buffer> pipe = body.stream().pipe();
@@ -638,7 +638,7 @@ public class DevProxyServer {
         ProxySession session = service.sessions.get(sessionId);
         if (session == null) {
             log.error("Push response could not find service " + service.config.getName() + " session ");
-            DevProxyServer.error(ctx, 404, "Session not found for service " + service.config.getName());
+            PlaypenServer.error(ctx, 404, "Session not found for service " + service.config.getName());
             return;
         }
         if (!auth.authorized(ctx, session))
@@ -648,7 +648,7 @@ public class DevProxyServer {
             log.error("Push response could not request " + requestId + " for service " + service.config.getName() + " session "
                     + sessionId);
             ctx.response().putHeader(POLL_LINK, CLIENT_API_PATH + "/poll/session/" + sessionId);
-            DevProxyServer.error(ctx, 404, "Request " + requestId + " not found");
+            PlaypenServer.error(ctx, 404, "Request " + requestId + " not found");
             return;
         }
         HttpServerResponse proxiedResponse = proxiedCtx.response();
@@ -656,8 +656,8 @@ public class DevProxyServer {
         String status = pushedResponse.getHeader(STATUS_CODE_HEADER);
         if (status == null) {
             log.error("Failed to get status header");
-            DevProxyServer.error(proxiedCtx, 500, "Failed");
-            DevProxyServer.error(ctx, 400, "Failed to get status header");
+            PlaypenServer.error(proxiedCtx, 500, "Failed");
+            PlaypenServer.error(ctx, 400, "Failed to get status header");
             return;
         }
         proxiedResponse.setStatusCode(Integer.parseInt(status));
@@ -687,7 +687,7 @@ public class DevProxyServer {
         ProxySession session = service.sessions.get(sessionId);
         if (session == null) {
             log.error("Delete push response could not find service " + service.config.getName() + " session ");
-            DevProxyServer.error(ctx, 404, "Session not found for service " + service.config.getName());
+            PlaypenServer.error(ctx, 404, "Session not found for service " + service.config.getName());
             return;
         }
         if (!auth.authorized(ctx, session))
@@ -696,7 +696,7 @@ public class DevProxyServer {
         if (proxiedCtx == null) {
             log.error("Delete push response could not find request " + requestId + " for service " + service.config.getName()
                     + " session " + sessionId);
-            DevProxyServer.error(ctx, 404, "Request " + requestId + " not found");
+            PlaypenServer.error(ctx, 404, "Request " + requestId + " not found");
             return;
         }
         proxiedCtx.fail(500);
@@ -709,7 +709,7 @@ public class DevProxyServer {
         ProxySession session = service.sessions.get(sessionId);
         if (session == null) {
             log.error("Poll next could not find service " + service.config.getName() + " session " + sessionId);
-            DevProxyServer.error(ctx, 404, "Session not found for service " + service.config.getName());
+            PlaypenServer.error(ctx, 404, "Session not found for service " + service.config.getName());
             return;
         }
         if (!auth.authorized(ctx, session))

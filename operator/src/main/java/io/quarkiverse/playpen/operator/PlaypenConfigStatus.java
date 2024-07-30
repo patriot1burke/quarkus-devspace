@@ -1,5 +1,5 @@
 package io.quarkiverse.playpen.operator;
 
-public class DevspaceConfigStatus {
+public class PlaypenConfigStatus {
 
 }

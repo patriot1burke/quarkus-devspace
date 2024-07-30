@@ -7,10 +7,10 @@ import io.javaoperatorsdk.operator.api.reconciler.ControllerConfiguration;
 import io.javaoperatorsdk.operator.api.reconciler.Reconciler;
 import io.javaoperatorsdk.operator.api.reconciler.UpdateControl;
 
-@ControllerConfiguration(namespaces = WATCH_ALL_NAMESPACES, name = "devspaceconfig")
-public class DevspaceConfigReconciler implements Reconciler<DevspaceConfig> {
+@ControllerConfiguration(namespaces = WATCH_ALL_NAMESPACES, name = "playpenconfig")
+public class PlaypenConfigReconciler implements Reconciler<PlaypenConfig> {
     @Override
-    public UpdateControl<DevspaceConfig> reconcile(DevspaceConfig resource, Context<DevspaceConfig> context)
+    public UpdateControl<PlaypenConfig> reconcile(PlaypenConfig resource, Context<PlaypenConfig> context)
             throws Exception {
 
         return UpdateControl.patchStatus(resource);

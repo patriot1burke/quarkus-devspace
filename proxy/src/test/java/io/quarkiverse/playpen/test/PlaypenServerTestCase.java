@@ -12,7 +12,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import io.quarkiverse.playpen.ProxyUtils;
-import io.quarkiverse.playpen.client.DevProxyClient;
+import io.quarkiverse.playpen.client.PlaypenClient;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.QuarkusTestProfile;
 import io.quarkus.test.junit.TestProfile;
@@ -23,8 +23,8 @@ import io.vertx.core.impl.VertxThread;
 import io.vertx.core.spi.VertxThreadFactory;
 
 @QuarkusTest
-@TestProfile(DevProxyServerTestCase.ConfigOverrides.class)
-public class DevProxyServerTestCase {
+@TestProfile(PlaypenServerTestCase.ConfigOverrides.class)
+public class PlaypenServerTestCase {
 
     public static Vertx vertx;
 
@@ -136,7 +136,7 @@ public class DevProxyServerTestCase {
 
     @Test
     public void testGlobalSession() throws Exception {
-        DevProxyClient client = DevProxyClient.create(vertx)
+        PlaypenClient client = PlaypenClient.create(vertx)
                 .devspace("http://localhost:8082?who=bill")
                 .service("localhost", 9092, false)
                 .build();

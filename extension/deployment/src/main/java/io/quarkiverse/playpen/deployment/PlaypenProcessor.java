@@ -4,8 +4,8 @@ import java.util.List;
 
 import org.jboss.logging.Logger;
 
-import io.quarkiverse.playpen.DevSpaceProxyRecorder;
-import io.quarkiverse.playpen.client.DevspaceConnectionConfig;
+import io.quarkiverse.playpen.PlaypenRecorder;
+import io.quarkiverse.playpen.client.PlaypenConnectionConfig;
 import io.quarkus.builder.BuildException;
 import io.quarkus.deployment.IsNormal;
 import io.quarkus.deployment.annotations.BuildStep;
@@ -16,11 +16,11 @@ import io.quarkus.deployment.builditem.ShutdownContextBuildItem;
 import io.quarkus.vertx.core.deployment.CoreVertxBuildItem;
 import io.quarkus.vertx.http.deployment.RequireVirtualHttpBuildItem;
 
-public class DevSpaceProcessor {
-    private static final Logger log = Logger.getLogger(DevSpaceProcessor.class);
+public class PlaypenProcessor {
+    private static final Logger log = Logger.getLogger(PlaypenProcessor.class);
 
     @BuildStep(onlyIfNot = IsNormal.class) // This is required for testing so run it even if devservices.enabled=false
-    public RequireVirtualHttpBuildItem requestVirtualHttp(DevspaceConfig config) throws BuildException {
+    public RequireVirtualHttpBuildItem requestVirtualHttp(PlaypenConfig config) throws BuildException {
 
         if (config.uri.isPresent()) {
             return RequireVirtualHttpBuildItem.MARKER;
@@ -34,10 +34,10 @@ public class DevSpaceProcessor {
     public void recordProxy(CoreVertxBuildItem vertx,
             List<ServiceStartBuildItem> orderServicesFirst, // try to order this after service recorders
             ShutdownContextBuildItem shutdown,
-            DevspaceConfig config,
-            DevSpaceProxyRecorder proxy) {
+            PlaypenConfig config,
+            PlaypenRecorder proxy) {
         if (config.uri.isPresent()) {
-            DevspaceConnectionConfig devspace = DevspaceConnectionConfig.fromUri(config.uri.get());
+            PlaypenConnectionConfig devspace = PlaypenConnectionConfig.fromUri(config.uri.get());
             if (devspace.error != null) {
                 throw new RuntimeException(devspace.error);
             }

@@ -4,7 +4,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 
-public class DevspaceConnectionConfig {
+public class PlaypenConnectionConfig {
     public String who;
     public String host;
     public int port;
@@ -18,8 +18,8 @@ public class DevspaceConnectionConfig {
     public String clientIp;
     public String credentials;
 
-    public static DevspaceConnectionConfig fromUri(String uriString) {
-        DevspaceConnectionConfig devspace = new DevspaceConnectionConfig();
+    public static PlaypenConnectionConfig fromUri(String uriString) {
+        PlaypenConnectionConfig devspace = new PlaypenConnectionConfig();
         URI uri = null;
         try {
             uri = new URI(uriString);

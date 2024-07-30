@@ -7,7 +7,7 @@ import io.quarkus.runtime.annotations.ConfigPhase;
 import io.quarkus.runtime.annotations.ConfigRoot;
 
 @ConfigRoot(name = "devspace", phase = ConfigPhase.BUILD_TIME)
-public class DevspaceConfig {
+public class PlaypenConfig {
     /**
      * Connection string for quarkus devspace.
      *

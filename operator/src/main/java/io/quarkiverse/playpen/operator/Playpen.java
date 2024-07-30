@@ -6,7 +6,6 @@ import io.fabric8.kubernetes.model.annotation.Group;
 import io.fabric8.kubernetes.model.annotation.Version;
 
 @Version("v1")
-@Group("io.quarkus.devspace")
-public class DevspaceConfig extends CustomResource<DevspaceConfigSpec, DevspaceConfigStatus>
-        implements Namespaced {
+@Group("io.quarkiverse.playpen")
+public class Playpen extends CustomResource<PlaypenSpec, PlaypenStatus> implements Namespaced {
 }

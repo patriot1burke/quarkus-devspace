@@ -9,16 +9,16 @@ import io.quarkus.runtime.Shutdown;
 import io.vertx.core.Vertx;
 
 @ApplicationScoped
-public class Client {
-    DevProxyClient client;
+public class PlaypenClientBean {
+    PlaypenClient client;
 
     @Inject
     Vertx vertx;
 
     CountDownLatch running = new CountDownLatch(1);
 
-    public boolean start(int localPort, DevspaceConnectionConfig config) throws Exception {
-        client = DevProxyClient.create(vertx)
+    public boolean start(int localPort, PlaypenConnectionConfig config) throws Exception {
+        client = PlaypenClient.create(vertx)
                 .devspace(config)
                 .service("localhost", localPort, false)
                 .credentials(config.credentials)

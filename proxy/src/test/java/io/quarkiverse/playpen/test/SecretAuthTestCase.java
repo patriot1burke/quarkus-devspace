@@ -14,7 +14,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import io.quarkiverse.playpen.ProxyUtils;
-import io.quarkiverse.playpen.client.DevProxyClient;
+import io.quarkiverse.playpen.client.PlaypenClient;
 import io.quarkiverse.playpen.server.auth.ProxySessionAuth;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.QuarkusTestProfile;
@@ -91,7 +91,7 @@ public class SecretAuthTestCase {
 
     @Test
     public void testBaseSecret() {
-        DevProxyClient client = DevProxyClient.create(vertx)
+        PlaypenClient client = PlaypenClient.create(vertx)
                 .devspace("http://localhost:8082?who=bill")
                 .service("localhost", 9092, false)
                 .secretAuth("badpassword")
@@ -101,7 +101,7 @@ public class SecretAuthTestCase {
 
     @Test
     public void testGlobalSession() throws Exception {
-        DevProxyClient client = DevProxyClient.create(vertx)
+        PlaypenClient client = PlaypenClient.create(vertx)
                 .devspace("http://localhost:8082?who=bill")
                 .service("localhost", 9092, false)
                 .credentials("geheim")

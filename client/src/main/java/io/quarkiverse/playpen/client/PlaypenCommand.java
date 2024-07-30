@@ -7,7 +7,7 @@ import jakarta.inject.Inject;
 import picocli.CommandLine;
 
 @CommandLine.Command(name = "devspace")
-public class DevspaceCommand implements Callable<Integer> {
+public class PlaypenCommand implements Callable<Integer> {
 
     @CommandLine.Option(names = { "-p",
             "--port" }, defaultValue = "8080", description = "port of local process", showDefaultValue = CommandLine.Help.Visibility.ALWAYS)
@@ -21,15 +21,15 @@ public class DevspaceCommand implements Callable<Integer> {
     private String uri;
 
     @Inject
-    Client client;
+    PlaypenClientBean client;
 
     @Override
     public Integer call() throws Exception {
-        DevspaceConnectionConfig config = DevspaceConnectionConfig.fromUri(uri);
+        PlaypenConnectionConfig config = PlaypenConnectionConfig.fromUri(uri);
         if (config.error != null) {
             System.out.println(config.error);
             System.out.println();
-            new CommandLine(new DevspaceCommand()).usage(System.out);
+            new CommandLine(new PlaypenCommand()).usage(System.out);
             return CommandLine.ExitCode.USAGE;
         }
         config.credentials = credentials;

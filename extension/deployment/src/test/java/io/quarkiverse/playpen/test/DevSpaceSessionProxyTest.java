@@ -14,9 +14,9 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import io.quarkiverse.playpen.DevSpaceProxyRecorder;
+import io.quarkiverse.playpen.PlaypenRecorder;
 import io.quarkiverse.playpen.ProxyUtils;
-import io.quarkiverse.playpen.server.DevProxyServer;
+import io.quarkiverse.playpen.server.PlaypenServer;
 import io.quarkiverse.playpen.server.ServiceConfig;
 import io.quarkus.test.QuarkusUnitTest;
 import io.vertx.core.Vertx;
@@ -75,7 +75,7 @@ public class DevSpaceSessionProxyTest {
         }).listen(SERVICE_PORT));
 
         ServiceConfig config = new ServiceConfig("my-service", "localhost", SERVICE_PORT);
-        proxy = DevProxyServer.create(vertx, config, PROXY_PORT, CLIENT_API_PORT);
+        proxy = PlaypenServer.create(vertx, config, PROXY_PORT, CLIENT_API_PORT);
     }
 
     @AfterAll
@@ -95,7 +95,7 @@ public class DevSpaceSessionProxyTest {
     public void testSession() throws Exception {
 
         try {
-            DevSpaceProxyRecorder.startSession();
+            PlaypenRecorder.startSession();
             System.out.println("-------------------- Query GET REQUEST --------------------");
             given()
                     .when()
@@ -118,7 +118,7 @@ public class DevSpaceSessionProxyTest {
             given()
                     .when()
                     .port(PROXY_PORT)
-                    .header(DevProxyServer.SESSION_HEADER, "john")
+                    .header(PlaypenServer.SESSION_HEADER, "john")
                     .get("/stuff")
                     .then()
                     .statusCode(200)
@@ -128,7 +128,7 @@ public class DevSpaceSessionProxyTest {
             given()
                     .when()
                     .port(PROXY_PORT)
-                    .cookie(DevProxyServer.SESSION_HEADER, "john")
+                    .cookie(PlaypenServer.SESSION_HEADER, "john")
                     .get("/stuff")
                     .then()
                     .statusCode(200)
@@ -162,14 +162,14 @@ public class DevSpaceSessionProxyTest {
             given()
                     .when()
                     .port(PROXY_PORT)
-                    .header(DevProxyServer.SESSION_HEADER, "jen")
+                    .header(PlaypenServer.SESSION_HEADER, "jen")
                     .get("/stuff")
                     .then()
                     .statusCode(200)
                     .contentType(equalTo("text/plain"))
                     .body(equalTo("my-service"));
         } finally {
-            DevSpaceProxyRecorder.closeSession();
+            PlaypenRecorder.closeSession();
         }
         System.out.println("-------------------- After Shutdown GET REQUEST --------------------");
         given()

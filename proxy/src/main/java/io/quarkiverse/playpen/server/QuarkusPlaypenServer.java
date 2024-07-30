@@ -17,8 +17,8 @@ import io.vertx.core.http.HttpServer;
 import io.vertx.ext.web.Router;
 
 @ApplicationScoped
-public class QuarkusDevProxyServer {
-    protected static final Logger log = Logger.getLogger(QuarkusDevProxyServer.class);
+public class QuarkusPlaypenServer {
+    protected static final Logger log = Logger.getLogger(QuarkusPlaypenServer.class);
 
     @Inject
     @ConfigProperty(name = "service.name")
@@ -60,11 +60,11 @@ public class QuarkusDevProxyServer {
     @ConfigProperty(name = "secret", defaultValue = "badsecret")
     protected String secret;
 
-    protected DevProxyServer proxyServer;
+    protected PlaypenServer proxyServer;
     private HttpServer clientApi;
 
     public void start(@Observes StartupEvent start, Vertx vertx, Router proxyRouter) {
-        proxyServer = new DevProxyServer();
+        proxyServer = new PlaypenServer();
         proxyServer.setIdleTimeout(idleTimeout);
         log.info("Idle timeout millis: " + idleTimeout);
         proxyServer.setPollTimeout(pollTimeout);

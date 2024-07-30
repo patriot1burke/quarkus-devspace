@@ -11,7 +11,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.jboss.logging.Logger;
 
 import io.quarkiverse.playpen.ProxyUtils;
-import io.quarkiverse.playpen.server.DevProxyServer;
+import io.quarkiverse.playpen.server.PlaypenServer;
 import io.quarkiverse.playpen.server.auth.ProxySessionAuth;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientRequest;
@@ -19,8 +19,8 @@ import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.http.HttpClosedException;
 import io.vertx.core.http.HttpMethod;
 
-public abstract class AbstractDevProxyClient {
-    protected static final Logger log = Logger.getLogger(DevProxyClient.class);
+public abstract class AbstractPlaypenClient {
+    protected static final Logger log = Logger.getLogger(PlaypenClient.class);
     protected HttpClient proxyClient;
     protected String sessionId;
     protected int numPollers = 1;
@@ -69,10 +69,10 @@ public abstract class AbstractDevProxyClient {
 
     public void initUri(String whoami, String sessionId, List<String> queries, List<String> paths, List<String> headers) {
         if (sessionId == null)
-            sessionId = DevProxyServer.GLOBAL_PROXY_SESSION;
+            sessionId = PlaypenServer.GLOBAL_PROXY_SESSION;
         this.sessionId = sessionId;
         log.debug("Start devspace session: " + sessionId);
-        this.uri = DevProxyServer.CLIENT_API_PATH + "/connect?who=" + whoami + "&session=" + sessionId;
+        this.uri = PlaypenServer.CLIENT_API_PATH + "/connect?who=" + whoami + "&session=" + sessionId;
         if (queries != null) {
             for (String query : queries)
                 this.uri = this.uri + "&query=" + query;
@@ -175,9 +175,9 @@ public abstract class AbstractDevProxyClient {
                 }
                 log.debug("******* Connect request succeeded");
                 try {
-                    this.pollLink = response.getHeader(DevProxyServer.POLL_LINK);
+                    this.pollLink = response.getHeader(PlaypenServer.POLL_LINK);
                     if (!pollTimeoutOverriden)
-                        this.pollTimeoutMillis = Long.parseLong(response.getHeader(DevProxyServer.POLL_TIMEOUT));
+                        this.pollTimeoutMillis = Long.parseLong(response.getHeader(PlaypenServer.POLL_TIMEOUT));
                     this.tokenHeader = response.getHeader(ProxySessionAuth.BEARER_TOKEN_HEADER);
                     workerShutdown = new Phaser(1);
                     for (int i = 0; i < numPollers; i++) {
@@ -223,9 +223,9 @@ public abstract class AbstractDevProxyClient {
                     return;
                 }
                 log.debug("Reconnect succeeded");
-                this.pollLink = response.getHeader(DevProxyServer.POLL_LINK);
+                this.pollLink = response.getHeader(PlaypenServer.POLL_LINK);
                 if (!pollTimeoutOverriden)
-                    this.pollTimeoutMillis = Long.parseLong(response.getHeader(DevProxyServer.POLL_TIMEOUT));
+                    this.pollTimeoutMillis = Long.parseLong(response.getHeader(PlaypenServer.POLL_TIMEOUT));
                 workerShutdown.register();
                 poll();
             });
@@ -341,7 +341,7 @@ public abstract class AbstractDevProxyClient {
             // delete session
             CountDownLatch latch = new CountDownLatch(1);
             if (connected) {
-                String uri = DevProxyServer.CLIENT_API_PATH + "/connect?session=" + sessionId;
+                String uri = PlaypenServer.CLIENT_API_PATH + "/connect?session=" + sessionId;
                 proxyClient.request(HttpMethod.DELETE, uri)
                         .onFailure(event -> {
                             log.error("Failed to delete sesssion on shutdown", event);
