@@ -38,6 +38,11 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
     OpenShiftClient client;
 
     private DevspaceConfigSpec getDevspaceConfig(Devspace primary) {
+        DevspaceConfig config = findDevspaceConfig(primary);
+        return toDefaultedSpec(config);
+    }
+
+    private DevspaceConfig findDevspaceConfig(Devspace primary) {
         MixedOperation<DevspaceConfig, KubernetesResourceList<DevspaceConfig>, Resource<DevspaceConfig>> configs = client
                 .resources(DevspaceConfig.class);
         String configNamespace = "quarkus";
@@ -47,11 +52,11 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
             configNamespace = primary.getMetadata().getNamespace();
         }
         DevspaceConfig config = configs.inNamespace(configNamespace).withName(configName).get();
-        return DevspaceConfigSpec.toDefaultedSpec(config);
+        return config;
     }
 
     public static String devspaceDeployment(Devspace primary) {
-        return primary.getMetadata().getName() + "-proxy";
+        return primary.getMetadata().getName() + "-devspace";
     }
 
     private void createProxyDeployment(Devspace primary, DevspaceConfigSpec config, AuthenticationType auth) {
@@ -149,9 +154,6 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
     private void createClientService(Devspace primary, DevspaceConfigSpec config) {
         String name = devspaceServiceName(primary);
         ExposePolicy exposePolicy = config.toExposePolicy();
-        if (exposePolicy == ExposePolicy.defaultPolicy) {
-            exposePolicy = ExposePolicy.nodePort;
-        }
         var spec = new ServiceBuilder()
                 .withMetadata(DevspaceReconciler.createMetadata(primary, name))
                 .withNewSpec();
@@ -211,7 +213,7 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
     }
 
     private static String devspaceSecret(Devspace primary) {
-        return primary.getMetadata().getName() + "-secret";
+        return primary.getMetadata().getName() + "-devspace-auth";
     }
 
     private void createSecret(Devspace devspace) {
@@ -228,6 +230,7 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
     @Override
     public UpdateControl<Devspace> reconcile(Devspace devspace, Context<Devspace> context) {
         if (devspace.getStatus() == null) {
+            log.info("reconcile");
             DevspaceStatus status = new DevspaceStatus();
             devspace.setStatus(status);
             try {
@@ -238,14 +241,15 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
                     status.setError("Service does not exist");
                     return UpdateControl.updateStatus(devspace);
                 }
-                DevspaceConfigSpec config = getDevspaceConfig(devspace);
-                AuthenticationType auth = config.toAuthenticationType();
+                DevspaceConfig config = findDevspaceConfig(devspace);
+                DevspaceConfigSpec configSpec = getDevspaceConfig(devspace);
+                AuthenticationType auth = configSpec.toAuthenticationType();
                 if (auth == AuthenticationType.secret) {
                     createSecret(devspace);
                 }
-                createProxyDeployment(devspace, config, auth);
-                createOriginService(devspace, config);
-                createClientService(devspace, config);
+                createProxyDeployment(devspace, configSpec, auth);
+                createOriginService(devspace, configSpec);
+                createClientService(devspace, configSpec);
 
                 Map<String, String> oldSelectors = new HashMap<>();
                 oldSelectors.putAll(service.getSpec().getSelector());
@@ -265,7 +269,13 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
                 serviceResource.edit(edit);
 
                 status.setCreated(true);
-                return UpdateControl.updateStatus(devspace);
+                if (config != null) {
+                    devspace.getMetadata().getLabels().put("io.quarkus.devspace/config",
+                            config.getMetadata().getNamespace() + "-" + config.getMetadata().getName());
+                    return UpdateControl.updateResourceAndStatus(devspace);
+                } else {
+                    return UpdateControl.updateStatus(devspace);
+                }
             } catch (RuntimeException e) {
                 status.setError(e.getMessage());
                 log.error("Error creating devspace " + devspace.getMetadata().getName(), e);
@@ -352,5 +362,48 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
             aMap.put(annotations[i], annotations[++i]);
         }
         return builder.withAnnotations(aMap).build();
+    }
+
+    /**
+     * pull spec from config and set up default values if value not set
+     *
+     * @param config
+     * @return
+     */
+    public DevspaceConfigSpec toDefaultedSpec(DevspaceConfig config) {
+        DevspaceConfigSpec spec = new DevspaceConfigSpec();
+        spec.setPollTimeoutSeconds(5);
+        spec.setAuthType(AuthenticationType.secret.name());
+        if (isOpenshift()) {
+            spec.setExposePolicy(ExposePolicy.secureRoute.name());
+        } else {
+            spec.setExposePolicy(ExposePolicy.nodePort.name());
+        }
+        spec.setProxy(new DevspaceConfigSpec.ProxyDeployment());
+        spec.getProxy().setImage("io.quarkus/quarkus-devspace-proxy:latest");
+        spec.getProxy().setImagePullPolicy("Always");
+        spec.setIdleTimeoutSeconds(60);
+        spec.setPollTimeoutSeconds(5);
+
+        if (config == null || config.getSpec() == null)
+            return spec;
+
+        DevspaceConfigSpec oldSpec = config.getSpec();
+        spec.setLogLevel(oldSpec.getLogLevel());
+        if (oldSpec.getPollTimeoutSeconds() != null)
+            spec.setPollTimeoutSeconds(oldSpec.getPollTimeoutSeconds());
+        if (oldSpec.getIdleTimeoutSeconds() != null)
+            spec.setIdleTimeoutSeconds(oldSpec.getIdleTimeoutSeconds());
+        if (oldSpec.getAuthType() != null)
+            spec.setAuthType(oldSpec.getAuthType());
+        if (oldSpec.getExposePolicy() != null)
+            spec.setExposePolicy(oldSpec.getExposePolicy());
+        if (oldSpec.getProxy() != null) {
+            if (oldSpec.getProxy().getImage() != null)
+                spec.getProxy().setImage(oldSpec.getProxy().getImage());
+            if (oldSpec.getProxy().getImagePullPolicy() != null)
+                spec.getProxy().setImagePullPolicy(oldSpec.getProxy().getImagePullPolicy());
+        }
+        return spec;
     }
 }

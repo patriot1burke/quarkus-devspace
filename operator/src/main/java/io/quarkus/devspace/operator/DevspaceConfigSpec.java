@@ -97,41 +97,4 @@ public class DevspaceConfigSpec {
         this.logLevel = logLevel;
     }
 
-    /**
-     * pull spec from config and set up default values if value not set
-     *
-     * @param config
-     * @return
-     */
-    public static DevspaceConfigSpec toDefaultedSpec(DevspaceConfig config) {
-        DevspaceConfigSpec spec = new DevspaceConfigSpec();
-        spec.pollTimeoutSeconds = 5;
-        spec.authType = AuthenticationType.secret.name();
-        spec.exposePolicy = ExposePolicy.defaultPolicy.name();
-        spec.setProxy(new ProxyDeployment());
-        spec.getProxy().setImage("io.quarkus/quarkus-devspace-proxy:latest");
-        spec.getProxy().setImagePullPolicy("Always");
-        spec.setIdleTimeoutSeconds(60);
-        spec.setPollTimeoutSeconds(5);
-
-        if (config == null || config.getSpec() == null)
-            return spec;
-        DevspaceConfigSpec oldSpec = config.getSpec();
-        spec.setLogLevel(oldSpec.getLogLevel());
-        if (oldSpec.getPollTimeoutSeconds() != null)
-            spec.pollTimeoutSeconds = oldSpec.getPollTimeoutSeconds();
-        if (oldSpec.getIdleTimeoutSeconds() != null)
-            spec.idleTimeoutSeconds = oldSpec.getIdleTimeoutSeconds();
-        if (oldSpec.getAuthType() != null)
-            spec.authType = oldSpec.getAuthType();
-        if (oldSpec.getExposePolicy() != null)
-            spec.exposePolicy = oldSpec.getExposePolicy();
-        if (oldSpec.getProxy() != null) {
-            if (oldSpec.getProxy().getImage() != null)
-                spec.getProxy().setImage(oldSpec.getProxy().getImage());
-            if (oldSpec.getProxy().getImagePullPolicy() != null)
-                spec.getProxy().setImagePullPolicy(oldSpec.getProxy().getImagePullPolicy());
-        }
-        return spec;
-    }
 }
