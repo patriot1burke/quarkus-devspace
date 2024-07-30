@@ -2,6 +2,7 @@ package io.quarkus.devspace.operator;
 
 public class DevspaceSpec {
     private String config;
+    private String configNamespace;
     private Integer nodePort;
     private String logLevel;
 
@@ -27,5 +28,13 @@ public class DevspaceSpec {
 
     public void setLogLevel(String logLevel) {
         this.logLevel = logLevel;
+    }
+
+    public String getConfigNamespace() {
+        return configNamespace;
+    }
+
+    public void setConfigNamespace(String configNamespace) {
+        this.configNamespace = configNamespace;
     }
 }

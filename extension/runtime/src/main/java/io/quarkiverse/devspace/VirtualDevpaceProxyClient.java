@@ -72,17 +72,17 @@ public class VirtualDevpaceProxyClient extends AbstractDevProxyClient {
                     queue.handler(null);
                 return this;
             }
-            log.info("NettyResponseHandler: set handler");
+            log.debug("NettyResponseHandler: set handler");
             queue.handler((buf) -> {
-                log.info("NettyResponseHandler: handler");
+                log.debug("NettyResponseHandler: handler");
                 if (buf == end) {
-                    log.info("NettyResponseHandler: calling end");
+                    log.debug("NettyResponseHandler: calling end");
                     connection.close();
                     if (endHandler != null) {
                         endHandler.handle(null);
                     }
                 } else {
-                    log.info("NettyResponseHandler: handler.handle(buf)");
+                    log.debug("NettyResponseHandler: handler.handle(buf)");
                     handler.handle(buf);
                 }
             });
@@ -91,22 +91,22 @@ public class VirtualDevpaceProxyClient extends AbstractDevProxyClient {
 
         @Override
         public ReadStream<Buffer> pause() {
-            log.info("NettyResponseHandler: pause");
+            log.debug("NettyResponseHandler: pause");
             queue.pause();
             return this;
         }
 
         @Override
         public ReadStream<Buffer> resume() {
-            log.info("NettyResponseHandler: resume");
+            log.debug("NettyResponseHandler: resume");
             boolean result = queue.resume();
-            log.info("NettyResponseHandler: resume returned: " + result);
+            log.debug("NettyResponseHandler: resume returned: " + result);
             return this;
         }
 
         @Override
         public ReadStream<Buffer> fetch(long amount) {
-            log.info("NettyResponseHandler: fetch");
+            log.debug("NettyResponseHandler: fetch");
             queue.fetch(amount);
             return this;
         }
@@ -119,18 +119,18 @@ public class VirtualDevpaceProxyClient extends AbstractDevProxyClient {
 
         @Override
         public void handleMessage(Object msg) {
-            log.infov("NettyResponseHandler: handleMessage({0})", msg.getClass().getName());
+            log.debugv("NettyResponseHandler: handleMessage({0})", msg.getClass().getName());
             if (msg instanceof HttpResponse) {
                 queue = new InboundBuffer<>(vertx.getOrCreateContext());
                 queue.pause();
                 HttpResponse res = (HttpResponse) msg;
                 proxyClient.request(HttpMethod.POST, responsePath + "?keepAlive=" + running)
                         .onFailure(exc -> {
-                            log.error("Proxy handle response failure", exc);
+                            logError("Proxy handle response failure: " + exc.getMessage());
                             workerOffline();
                         })
                         .onSuccess(pushRequest -> {
-                            log.info("NettyResponseHandler connect accepted for pushResponse");
+                            log.debug("NettyResponseHandler connect accepted for pushResponse");
                             setToken(pushRequest);
                             pushRequest.setTimeout(pollTimeoutMillis);
                             pushRequest.putHeader(DevProxyServer.STATUS_CODE_HEADER, Integer.toString(res.status().code()));
@@ -155,7 +155,7 @@ public class VirtualDevpaceProxyClient extends AbstractDevProxyClient {
                                         if (exc instanceof TimeoutException) {
                                             poll();
                                         } else {
-                                            log.error("Failed to push service response", exc);
+                                            logError("Failed to push service response: " + exc.getMessage());
                                             workerOffline();
                                         }
                                     })
@@ -163,7 +163,7 @@ public class VirtualDevpaceProxyClient extends AbstractDevProxyClient {
                         });
             }
             if (msg instanceof HttpContent) {
-                log.info("NettyResponseHandler: write HttpContent");
+                log.debug("NettyResponseHandler: write HttpContent");
                 write(BufferImpl.buffer(((HttpContent) msg).content()));
             }
             if (msg instanceof FileRegion) {
@@ -171,7 +171,7 @@ public class VirtualDevpaceProxyClient extends AbstractDevProxyClient {
                 throw new RuntimeException("FileRegion not supported yet");
             }
             if (msg instanceof LastHttpContent) {
-                log.info("NettyResponseHandler: write LastHttpContent");
+                log.debug("NettyResponseHandler: write LastHttpContent");
                 write(end);
             }
         }
@@ -190,7 +190,7 @@ public class VirtualDevpaceProxyClient extends AbstractDevProxyClient {
         }
 
         private void writeHttpContent(Buffer data) {
-            log.info("NettyWriteStream: writeHttpContent");
+            log.debug("NettyWriteStream: writeHttpContent");
             // todo getByteBuf copies the underlying byteBuf
             DefaultHttpContent content = new DefaultHttpContent(data.getByteBuf());
             connection.sendMessage(content);
@@ -218,7 +218,7 @@ public class VirtualDevpaceProxyClient extends AbstractDevProxyClient {
 
         @Override
         public void end(Handler<AsyncResult<Void>> handler) {
-            log.info("NettyWriteStream: end");
+            log.debug("NettyWriteStream: end");
             connection.sendMessage(LastHttpContent.EMPTY_LAST_CONTENT);
             handler.handle(Future.succeededFuture());
         }
@@ -240,7 +240,7 @@ public class VirtualDevpaceProxyClient extends AbstractDevProxyClient {
     }
 
     protected void processPoll(HttpClientResponse pollResponse) {
-        log.info("Unpack poll request");
+        log.debug("Unpack poll request");
         String method = pollResponse.getHeader(DevProxyServer.METHOD_HEADER);
         String uri = pollResponse.getHeader(DevProxyServer.URI_HEADER);
         String responsePath = pollResponse.getHeader(DevProxyServer.RESPONSE_LINK);
@@ -270,7 +270,7 @@ public class VirtualDevpaceProxyClient extends AbstractDevProxyClient {
             nettyRequest.headers().add(HttpHeaderNames.HOST, "localhost");
         }
 
-        log.info("send initial nettyRequest");
+        log.debug("send initial nettyRequest");
         connection.sendMessage(nettyRequest);
         pollResponse.pipeTo(new NettyWriteStream(connection));
     }

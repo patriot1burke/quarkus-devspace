@@ -85,7 +85,7 @@ public class DevProxyClient extends AbstractDevProxyClient {
         // do not keepAlive is we are in shutdown mode
         proxyClient.request(HttpMethod.POST, responsePath + "?keepAlive=" + running)
                 .onFailure(exc -> {
-                    log.error("Proxy handle response failure", exc);
+                    logError("Proxy handle response failure: " + exc.getMessage());
                     workerOffline();
                 })
                 .onSuccess(pushRequest -> {
@@ -99,7 +99,7 @@ public class DevProxyClient extends AbstractDevProxyClient {
                                 if (exc instanceof TimeoutException) {
                                     poll();
                                 } else {
-                                    log.error("Failed to push service response", exc);
+                                    logError("Failed to push service response" + exc.getMessage());
                                     workerOffline();
                                 }
                             })

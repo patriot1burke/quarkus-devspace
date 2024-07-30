@@ -50,6 +50,9 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
         if (primary.getSpec() != null && primary.getSpec().getConfig() != null) {
             configName = primary.getSpec().getConfig();
             configNamespace = primary.getMetadata().getNamespace();
+            if (primary.getSpec().getConfigNamespace() != null) {
+                configNamespace = primary.getSpec().getConfigNamespace();
+            }
         }
         DevspaceConfig config = configs.inNamespace(configNamespace).withName(configName).get();
         return config;
@@ -157,19 +160,22 @@ public class DevspaceReconciler implements Reconciler<Devspace>, Cleaner<Devspac
         var spec = new ServiceBuilder()
                 .withMetadata(DevspaceReconciler.createMetadata(primary, name))
                 .withNewSpec();
-        if (primary.getSpec() != null && primary.getSpec().getNodePort() != null) {
-            spec.withType("NodePort")
-                    .addNewPort().withNodePort(primary.getSpec().getNodePort());
-        } else if (exposePolicy == ExposePolicy.nodePort) {
+        if (exposePolicy == ExposePolicy.nodePort || (primary.getSpec() != null && primary.getSpec().getNodePort() != null)) {
             spec.withType("NodePort");
         }
 
-        Service service = spec
+        var port = spec
                 .addNewPort()
                 .withName("http")
                 .withPort(80)
                 .withProtocol("TCP")
-                .withTargetPort(new IntOrString(8081))
+                .withTargetPort(new IntOrString(8081));
+
+        if (primary.getSpec() != null && primary.getSpec().getNodePort() != null) {
+            port.withNodePort(primary.getSpec().getNodePort());
+        }
+
+        Service service = port
                 .endPort()
                 .withSelector(Map.of("run", devspaceDeployment(primary)))
                 .endSpec().build();

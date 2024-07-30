@@ -97,10 +97,11 @@ public abstract class AbstractDevProxyClient {
             throw new RuntimeException(e);
         }
         if (!success.get()) {
-            log.error("Failed to connect to proxy server");
+            logError("Failed to connect to proxy server");
             forcedShutdown();
             return false;
         }
+        log.info("Devspace connection established...");
         this.connected = true;
         return true;
     }
@@ -110,7 +111,7 @@ public abstract class AbstractDevProxyClient {
         proxyClient.request(HttpMethod.POST, uri, event -> {
             log.debug("******* Connect request start");
             if (event.failed()) {
-                log.error("Could not connect to startSession", event.cause());
+                logError("Could not connect to startSession: " + event.cause().getMessage());
                 latch.countDown();
                 return;
             }
@@ -122,23 +123,22 @@ public abstract class AbstractDevProxyClient {
             request.send().onComplete(event1 -> {
                 log.debug("******* Connect request onComplete");
                 if (event1.failed()) {
-                    log.error("Could not connect to startSession", event1.cause());
+                    logError("Could not connect to startSession: " + event1.cause().getMessage());
                     latch.countDown();
                     return;
                 }
                 HttpClientResponse response = event1.result();
                 if (response.statusCode() == 409) {
                     response.bodyHandler(body -> {
-                        log.error("Could not connect to session as " + body.toString() + " is using the session");
+                        logError("Could not connect to session as " + body.toString() + " is using the session");
                         latch.countDown();
                     });
                     return;
                 } else if (response.statusCode() == 401) {
                     String wwwAuthenticate = response.getHeader(ProxySessionAuth.WWW_AUTHENTICATE);
                     if (wwwAuthenticate == null) {
-                        log.error("Could not authenticate connection");
+                        logError("Could not authenticate connection");
                         latch.countDown();
-
                     }
                     if (challenged) {
                         String message = "";
@@ -147,13 +147,13 @@ public abstract class AbstractDevProxyClient {
                         } else if (wwwAuthenticate.startsWith("Secret")) {
                             message = ". You must provide correct secret in quarkus.devspace.credentials";
                         }
-                        log.error("Could not authenticate connection" + message);
+                        logError("Could not authenticate connection" + message);
                         latch.countDown();
                         return;
                     }
                     if (wwwAuthenticate.startsWith(ProxySessionAuth.BASIC)) {
                         if (!setBasicAuth(credentials)) {
-                            log.error("Expecting username:password for basic auth credentials string");
+                            logError("Expecting username:password for basic auth credentials string");
                             latch.countDown();
                             return;
                         }
@@ -164,15 +164,13 @@ public abstract class AbstractDevProxyClient {
                         connect(latch, success, true);
                         return;
                     } else {
-                        log.error("Unknown authentication protocol");
+                        logError("Unknown authentication protocol");
                         latch.countDown();
                         return;
                     }
                 } else if (response.statusCode() != 204) {
-                    response.bodyHandler(body -> {
-                        log.error("Could not connect to startSession " + response.statusCode() + body.toString());
-                        latch.countDown();
-                    });
+                    logError("Could not connect to startSession " + response.statusCode());
+                    latch.countDown();
                     return;
                 }
                 log.debug("******* Connect request succeeded");
@@ -200,7 +198,7 @@ public abstract class AbstractDevProxyClient {
         log.debug("reconnect.....");
         proxyClient.request(HttpMethod.POST, uri, event -> {
             if (event.failed()) {
-                log.error("Could not reconnect to session", event.cause());
+                logError("Could not reconnect to session: " + event.cause().getMessage());
                 return;
             }
             HttpClientRequest request = event.result();
@@ -210,20 +208,18 @@ public abstract class AbstractDevProxyClient {
             log.debug("Sending reconnect request...");
             request.send().onComplete(event1 -> {
                 if (event1.failed()) {
-                    log.error("Could not reconnect to session", event1.cause());
+                    logError("Could not reconnect to session: " + event1.cause().getMessage());
                     return;
                 }
                 HttpClientResponse response = event1.result();
                 if (response.statusCode() == 409) {
                     response.bodyHandler(body -> {
-                        log.error("Could not reconnect to session as " + body.toString() + " is using the session");
+                        logError("Could not reconnect to session as " + body.toString() + " is using the session");
                     });
                     return;
                 }
                 if (response.statusCode() != 204) {
-                    response.bodyHandler(body -> {
-                        log.error("Could not reconnect to session" + response.statusCode() + body.toString());
-                    });
+                    logError("Could not reconnect to session" + response.statusCode());
                     return;
                 }
                 log.debug("Reconnect succeeded");
@@ -234,6 +230,14 @@ public abstract class AbstractDevProxyClient {
                 poll();
             });
         });
+    }
+
+    protected void logError(String msg) {
+        log.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+        log.error("");
+        log.error(msg);
+        log.error("");
+        log.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
     }
 
     public void forcedShutdown() {
@@ -250,13 +254,13 @@ public abstract class AbstractDevProxyClient {
             poll();
             return;
         } else {
-            log.error("Poll failed", failure);
+            logError("Poll failed: " + failure.getMessage());
         }
         workerOffline();
     }
 
     protected void pollConnectFailure(Throwable failure) {
-        log.error("Connect Poll failed", failure);
+        logError("Connect Poll failed: " + failure.getMessage());
         workerOffline();
     }
 
@@ -291,7 +295,7 @@ public abstract class AbstractDevProxyClient {
     }
 
     protected void pollFailure(String error) {
-        log.error("Poll failed: " + error);
+        logError("Poll failed: " + error);
         workerOffline();
     }
 
