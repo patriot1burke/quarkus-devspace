@@ -4,12 +4,12 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>io.quarkiverse.devspace</groupId>
-        <artifactId>quarkus-devspace-parent</artifactId>
+        <groupId>io.quarkiverse.playpen</groupId>
+        <artifactId>quarkus-playpen-parent</artifactId>
         <version>999-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
-    <artifactId>devspace-proxy-core</artifactId>
+    <artifactId>playpen-proxy-core</artifactId>
     <properties>
     </properties>
     <dependencies>

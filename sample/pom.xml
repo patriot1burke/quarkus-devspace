@@ -62,8 +62,8 @@
           </dependency>
           -->
         <dependency>
-            <groupId>io.quarkiverse.devspace</groupId>
-            <artifactId>quarkus-devspace</artifactId>
+            <groupId>io.quarkiverse.playpen</groupId>
+            <artifactId>quarkus-playpen</artifactId>
             <version>999-SNAPSHOT</version>
         </dependency>
         <dependency>

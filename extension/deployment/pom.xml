@@ -3,19 +3,19 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>io.quarkiverse.devspace</groupId>
-        <artifactId>quarkus-devspace-parent</artifactId>
+        <groupId>io.quarkiverse.playpen</groupId>
+        <artifactId>quarkus-playpen-parent</artifactId>
         <version>999-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <artifactId>quarkus-devspace-deployment</artifactId>
-    <name>Quarkus - Devspace - Deployment</name>
+    <artifactId>quarkus-playpen-deployment</artifactId>
+    <name>Quarkus - Playpen - Deployment</name>
 
     <dependencies>
         <dependency>
-            <groupId>io.quarkiverse.devspace</groupId>
-            <artifactId>quarkus-devspace</artifactId>
+            <groupId>io.quarkiverse.playpen</groupId>
+            <artifactId>quarkus-playpen</artifactId>
         </dependency>
         <dependency>
             <groupId>io.quarkus</groupId>
