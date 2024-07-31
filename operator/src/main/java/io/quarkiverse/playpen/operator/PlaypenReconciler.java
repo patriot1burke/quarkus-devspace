@@ -9,6 +9,7 @@ import java.util.function.UnaryOperator;
 import jakarta.inject.Inject;
 
 import org.apache.commons.lang3.RandomStringUtils;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 import io.fabric8.kubernetes.api.model.*;
@@ -36,6 +37,14 @@ public class PlaypenReconciler implements Reconciler<Playpen>, Cleaner<Playpen> 
 
     @Inject
     OpenShiftClient client;
+
+    @Inject
+    @ConfigProperty(name = "proxy.image", defaultValue = "quay.io/quarkus-playpen/playpen-proxy:latest")
+    String proxyImage;
+
+    @Inject
+    @ConfigProperty(name = "proxy.imagepullpolicy", defaultValue = "Always")
+    String proxyImagePullPolicy;
 
     private PlaypenConfigSpec getPlaypenConfig(Playpen primary) {
         PlaypenConfig config = findPlaypenConfig(primary);
@@ -65,8 +74,8 @@ public class PlaypenReconciler implements Reconciler<Playpen>, Cleaner<Playpen> 
     private void createProxyDeployment(Playpen primary, PlaypenConfigSpec config, AuthenticationType auth) {
         String serviceName = primary.getMetadata().getName();
         String name = playpenDeployment(primary);
-        String image = config.getProxy().getImage();
-        String imagePullPolicy = config.getProxy().getImagePullPolicy();
+        String image = proxyImage;
+        String imagePullPolicy = proxyImagePullPolicy;
 
         var container = new DeploymentBuilder()
                 .withMetadata(PlaypenReconciler.createMetadata(primary, name))
@@ -385,9 +394,6 @@ public class PlaypenReconciler implements Reconciler<Playpen>, Cleaner<Playpen> 
         } else {
             spec.setExposePolicy(ExposePolicy.nodePort.name());
         }
-        spec.setProxy(new PlaypenConfigSpec.ProxyDeployment());
-        spec.getProxy().setImage("io.quarkiverse.playpen/quarkus-playpen-proxy:latest");
-        spec.getProxy().setImagePullPolicy("Always");
         spec.setIdleTimeoutSeconds(60);
         spec.setPollTimeoutSeconds(5);
 
@@ -404,12 +410,6 @@ public class PlaypenReconciler implements Reconciler<Playpen>, Cleaner<Playpen> 
             spec.setAuthType(oldSpec.getAuthType());
         if (oldSpec.getExposePolicy() != null)
             spec.setExposePolicy(oldSpec.getExposePolicy());
-        if (oldSpec.getProxy() != null) {
-            if (oldSpec.getProxy().getImage() != null)
-                spec.getProxy().setImage(oldSpec.getProxy().getImage());
-            if (oldSpec.getProxy().getImagePullPolicy() != null)
-                spec.getProxy().setImagePullPolicy(oldSpec.getProxy().getImagePullPolicy());
-        }
         return spec;
     }
 }

@@ -1,29 +1,6 @@
 package io.quarkiverse.playpen.operator;
 
 public class PlaypenConfigSpec {
-    public static class ProxyDeployment {
-        private String image;
-        private String imagePullPolicy;
-
-        public String getImage() {
-            return image;
-        }
-
-        public void setImage(String image) {
-            this.image = image;
-        }
-
-        public String getImagePullPolicy() {
-            return imagePullPolicy;
-        }
-
-        public void setImagePullPolicy(String imagePullPolicy) {
-            this.imagePullPolicy = imagePullPolicy;
-        }
-    }
-
-    private ProxyDeployment proxy;
-
     private String authType;
     private Integer pollTimeoutSeconds;
     private Integer idleTimeoutSeconds;
@@ -36,14 +13,6 @@ public class PlaypenConfigSpec {
      * nodePort;
      */
     private String exposePolicy;
-
-    public ProxyDeployment getProxy() {
-        return proxy;
-    }
-
-    public void setProxy(ProxyDeployment proxy) {
-        this.proxy = proxy;
-    }
 
     public String getAuthType() {
         return authType;

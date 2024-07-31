@@ -22,7 +22,7 @@ public class PlaypenRecorder {
         config = c;
         PlaypenRecorder.vertx = vertx.get();
         if (!delayConnect) {
-            startSession(c);
+            startSession(PlaypenRecorder.vertx, c);
             shutdown.addShutdownTask(() -> {
                 closeSession();
             });
@@ -30,10 +30,10 @@ public class PlaypenRecorder {
     }
 
     public static void startSession() {
-        startSession(config);
+        startSession(vertx, config);
     }
 
-    public static void startSession(PlaypenConnectionConfig config) {
+    public static void startSession(Vertx vertx, PlaypenConnectionConfig config) {
         client = new VirtualPlaypenClient();
         HttpClientOptions options = new HttpClientOptions();
         options.setDefaultHost(config.host);

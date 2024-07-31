@@ -19,18 +19,15 @@ import io.quarkus.vertx.http.deployment.RequireVirtualHttpBuildItem;
 public class PlaypenProcessor {
     private static final Logger log = Logger.getLogger(PlaypenProcessor.class);
 
-    @BuildStep(onlyIfNot = IsNormal.class) // This is required for testing so run it even if devservices.enabled=false
+    @BuildStep(onlyIfNot = IsNormal.class)
     public RequireVirtualHttpBuildItem requestVirtualHttp(PlaypenConfig config) throws BuildException {
-
-        if (config.uri.isPresent()) {
-            return RequireVirtualHttpBuildItem.MARKER;
-        } else {
-            return null;
-        }
+        // always turn on virtual http in test/dev mode just in case somebody wants to manually start
+        // server
+        return RequireVirtualHttpBuildItem.MARKER;
     }
 
     @Record(ExecutionTime.RUNTIME_INIT)
-    @BuildStep(onlyIfNot = IsNormal.class) // This is required for testing so run it even if devservices.enabled=false
+    @BuildStep(onlyIfNot = IsNormal.class)
     public void recordProxy(CoreVertxBuildItem vertx,
             List<ServiceStartBuildItem> orderServicesFirst, // try to order this after service recorders
             ShutdownContextBuildItem shutdown,
