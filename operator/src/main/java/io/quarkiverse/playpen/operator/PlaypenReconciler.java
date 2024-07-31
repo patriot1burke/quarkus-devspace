@@ -37,12 +37,12 @@ public class PlaypenReconciler implements Reconciler<Playpen>, Cleaner<Playpen> 
     @Inject
     OpenShiftClient client;
 
-    private PlaypenConfigSpec getDevspaceConfig(Playpen primary) {
-        PlaypenConfig config = findDevspaceConfig(primary);
+    private PlaypenConfigSpec getPlaypenConfig(Playpen primary) {
+        PlaypenConfig config = findPlaypenConfig(primary);
         return toDefaultedSpec(config);
     }
 
-    private PlaypenConfig findDevspaceConfig(Playpen primary) {
+    private PlaypenConfig findPlaypenConfig(Playpen primary) {
         MixedOperation<PlaypenConfig, KubernetesResourceList<PlaypenConfig>, Resource<PlaypenConfig>> configs = client
                 .resources(PlaypenConfig.class);
         String configNamespace = "quarkus";
@@ -58,13 +58,13 @@ public class PlaypenReconciler implements Reconciler<Playpen>, Cleaner<Playpen> 
         return config;
     }
 
-    public static String devspaceDeployment(Playpen primary) {
-        return primary.getMetadata().getName() + "-devspace";
+    public static String playpenDeployment(Playpen primary) {
+        return primary.getMetadata().getName() + "-playpen";
     }
 
     private void createProxyDeployment(Playpen primary, PlaypenConfigSpec config, AuthenticationType auth) {
         String serviceName = primary.getMetadata().getName();
-        String name = devspaceDeployment(primary);
+        String name = playpenDeployment(primary);
         String image = config.getProxy().getImage();
         String imagePullPolicy = config.getProxy().getImagePullPolicy();
 
@@ -79,7 +79,7 @@ public class PlaypenReconciler implements Reconciler<Playpen>, Cleaner<Playpen> 
                 .withNewSpec()
                 .addNewContainer();
         if (auth == AuthenticationType.secret) {
-            container.addNewEnv().withName("SECRET").withNewValueFrom().withNewSecretKeyRef().withName(devspaceSecret(primary))
+            container.addNewEnv().withName("SECRET").withNewValueFrom().withNewSecretKeyRef().withName(playpenSecret(primary))
                     .withKey("password").endSecretKeyRef().endValueFrom().endEnv();
         }
         String logLevel = config.getLogLevel();
@@ -87,7 +87,7 @@ public class PlaypenReconciler implements Reconciler<Playpen>, Cleaner<Playpen> 
             logLevel = primary.getSpec().getLogLevel();
         }
         if (logLevel != null) {
-            container.addNewEnv().withName("QUARKUS_LOG_CATEGORY__IO_QUARKUS_DEVSPACE__LEVEL").withValue(logLevel)
+            container.addNewEnv().withName("QUARKUS_LOG_CATEGORY__IO_QUARKIVERSE_PLAYPEN__LEVEL").withValue(logLevel)
                     .endEnv();
         }
         long pollTimeout = config.getPollTimeoutSeconds() * 1000;
@@ -106,7 +106,7 @@ public class PlaypenReconciler implements Reconciler<Playpen>, Cleaner<Playpen> 
                 .withImagePullPolicy(imagePullPolicy)
                 .withName(name)
                 .addNewPort().withName("proxy-http").withContainerPort(8080).withProtocol("TCP").endPort()
-                .addNewPort().withName("devspace-http").withContainerPort(8081).withProtocol("TCP").endPort()
+                .addNewPort().withName("playpen-http").withContainerPort(8081).withProtocol("TCP").endPort()
                 .endContainer();
 
         Deployment deployment = spec
@@ -150,12 +150,12 @@ public class PlaypenReconciler implements Reconciler<Playpen>, Cleaner<Playpen> 
         primary.getStatus().getCleanup().add(0, new PlaypenStatus.CleanupResource("service", name));
     }
 
-    private static String devspaceServiceName(Playpen primary) {
-        return primary.getMetadata().getName() + "-devspace";
+    private static String playpenServiceName(Playpen primary) {
+        return primary.getMetadata().getName() + "-playpen";
     }
 
     private void createClientService(Playpen primary, PlaypenConfigSpec config) {
-        String name = devspaceServiceName(primary);
+        String name = playpenServiceName(primary);
         ExposePolicy exposePolicy = config.toExposePolicy();
         var spec = new ServiceBuilder()
                 .withMetadata(PlaypenReconciler.createMetadata(primary, name))
@@ -177,18 +177,18 @@ public class PlaypenReconciler implements Reconciler<Playpen>, Cleaner<Playpen> 
 
         Service service = port
                 .endPort()
-                .withSelector(Map.of("run", devspaceDeployment(primary)))
+                .withSelector(Map.of("run", playpenDeployment(primary)))
                 .endSpec().build();
         client.resource(service).serverSideApply();
 
         int routerTimeout = config.getPollTimeoutSeconds() + 1;
 
         if (exposePolicy == ExposePolicy.secureRoute) {
-            String routeName = primary.getMetadata().getName() + "-devspace";
+            String routeName = primary.getMetadata().getName() + "-playpen";
             Route route = new RouteBuilder()
                     .withMetadata(PlaypenReconciler.createMetadataWithAnnotations(primary, routeName,
                             "haproxy.router.openshift.io/timeout", routerTimeout + "s"))
-                    .withNewSpec().withNewTo().withKind("Service").withName(devspaceServiceName(primary))
+                    .withNewSpec().withNewTo().withKind("Service").withName(playpenServiceName(primary))
                     .endTo()
                     .withNewPort().withNewTargetPort("http").endPort()
                     .withNewTls().withTermination("edge").withInsecureEdgeTerminationPolicy("Redirect").endTls()
@@ -196,11 +196,11 @@ public class PlaypenReconciler implements Reconciler<Playpen>, Cleaner<Playpen> 
             client.adapt(OpenShiftClient.class).routes().resource(route).serverSideApply();
             primary.getStatus().getCleanup().add(0, new PlaypenStatus.CleanupResource("route", routeName));
         } else if (exposePolicy == ExposePolicy.route) {
-            String routeName = primary.getMetadata().getName() + "-devspace";
+            String routeName = primary.getMetadata().getName() + "-playpen";
             Route route = new RouteBuilder()
                     .withMetadata(PlaypenReconciler.createMetadataWithAnnotations(primary, routeName,
                             "haproxy.router.openshift.io/timeout", routerTimeout + "s"))
-                    .withNewSpec().withNewTo().withKind("Service").withName(devspaceServiceName(primary))
+                    .withNewSpec().withNewTo().withKind("Service").withName(playpenServiceName(primary))
                     .endTo()
                     .withNewPort().withNewTargetPort("http").endPort()
                     .endSpec().build();
@@ -218,12 +218,12 @@ public class PlaypenReconciler implements Reconciler<Playpen>, Cleaner<Playpen> 
         return false;
     }
 
-    private static String devspaceSecret(Playpen primary) {
-        return primary.getMetadata().getName() + "-devspace-auth";
+    private static String playpenSecret(Playpen primary) {
+        return primary.getMetadata().getName() + "-playpen-auth";
     }
 
     private void createSecret(Playpen playpen) {
-        String name = devspaceSecret(playpen);
+        String name = playpenSecret(playpen);
         String password = RandomStringUtils.randomAlphabetic(10);
         Secret secret = new SecretBuilder()
                 .withMetadata(PlaypenReconciler.createMetadata(playpen, name))
@@ -247,8 +247,8 @@ public class PlaypenReconciler implements Reconciler<Playpen>, Cleaner<Playpen> 
                     status.setError("Service does not exist");
                     return UpdateControl.updateStatus(playpen);
                 }
-                PlaypenConfig config = findDevspaceConfig(playpen);
-                PlaypenConfigSpec configSpec = getDevspaceConfig(playpen);
+                PlaypenConfig config = findPlaypenConfig(playpen);
+                PlaypenConfigSpec configSpec = getPlaypenConfig(playpen);
                 AuthenticationType auth = configSpec.toAuthenticationType();
                 if (auth == AuthenticationType.secret) {
                     createSecret(playpen);
@@ -261,7 +261,7 @@ public class PlaypenReconciler implements Reconciler<Playpen>, Cleaner<Playpen> 
                 oldSelectors.putAll(service.getSpec().getSelector());
                 status.setOldSelectors(oldSelectors);
                 status.setOldExternalTrafficPolicy(service.getSpec().getExternalTrafficPolicy());
-                String proxyDeploymentName = devspaceDeployment(playpen);
+                String proxyDeploymentName = playpenDeployment(playpen);
                 UnaryOperator<Service> edit = (s) -> {
                     ServiceBuilder builder = new ServiceBuilder(s);
                     ServiceFluent<ServiceBuilder>.SpecNested<ServiceBuilder> spec = builder.editSpec();
@@ -276,7 +276,7 @@ public class PlaypenReconciler implements Reconciler<Playpen>, Cleaner<Playpen> 
 
                 status.setCreated(true);
                 if (config != null) {
-                    playpen.getMetadata().getLabels().put("io.quarkus.devspace/config",
+                    playpen.getMetadata().getLabels().put("io.quarkiverse.playpen/config",
                             config.getMetadata().getNamespace() + "-" + config.getMetadata().getName());
                     return UpdateControl.updateResourceAndStatus(playpen);
                 } else {
@@ -284,7 +284,7 @@ public class PlaypenReconciler implements Reconciler<Playpen>, Cleaner<Playpen> 
                 }
             } catch (RuntimeException e) {
                 status.setError(e.getMessage());
-                log.error("Error creating devspace " + playpen.getMetadata().getName(), e);
+                log.error("Error creating playpen " + playpen.getMetadata().getName(), e);
                 return UpdateControl.updateStatus(playpen);
             }
         } else {
@@ -386,7 +386,7 @@ public class PlaypenReconciler implements Reconciler<Playpen>, Cleaner<Playpen> 
             spec.setExposePolicy(ExposePolicy.nodePort.name());
         }
         spec.setProxy(new PlaypenConfigSpec.ProxyDeployment());
-        spec.getProxy().setImage("io.quarkus/quarkus-devspace-proxy:latest");
+        spec.getProxy().setImage("io.quarkiverse.playpen/quarkus-playpen-proxy:latest");
         spec.getProxy().setImagePullPolicy("Always");
         spec.setIdleTimeoutSeconds(60);
         spec.setPollTimeoutSeconds(5);

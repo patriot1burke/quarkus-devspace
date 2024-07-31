@@ -26,14 +26,15 @@ import io.vertx.core.impl.VertxThread;
 import io.vertx.core.spi.VertxThreadFactory;
 import io.vertx.ext.web.Router;
 
-public class DevSpaceProxyTest {
+public class PlaypenServerSessionTest {
 
     public static final int SERVICE_PORT = 9091;
     public static final int PROXY_PORT = 9092;
+    public static final int CLIENT_API_PORT = 9093;
 
     private static final String APP_PROPS = "" +
-            "quarkus.devspace.uri=http://localhost:9092?who=bill\n"
-            + "quarkus.devspace.manual-start=true\n";
+            "quarkus.playpen.uri=http://localhost:9093?who=bill&session=john&path=/users/john&query=user=john\n"
+            + "quarkus.playpen.manual-start=true\n";
 
     @RegisterExtension
     static final QuarkusUnitTest config = new QuarkusUnitTest()
@@ -41,8 +42,7 @@ public class DevSpaceProxyTest {
                     .addAsResource(new StringAsset(APP_PROPS), "application.properties")
                     .addClasses(RouteProducer.class));
 
-    public static PlaypenServer proxyServer;
-    public static HttpServer proxy;
+    public static AutoCloseable proxy;
 
     static HttpServer myService;
 
@@ -74,21 +74,17 @@ public class DevSpaceProxyTest {
             request.response().setStatusCode(200).putHeader("Content-Type", "text/plain").end("my-service");
         }).listen(SERVICE_PORT));
 
-        proxy = vertx.createHttpServer();
-        proxyServer = new PlaypenServer();
-        Router proxyRouter = Router.router(vertx);
         ServiceConfig config = new ServiceConfig("my-service", "localhost", SERVICE_PORT);
-        proxyServer.init(vertx, proxyRouter, proxyRouter, config);
-        ProxyUtils.await(1000, proxy.requestHandler(proxyRouter).listen(PROXY_PORT));
+        proxy = PlaypenServer.create(vertx, config, PROXY_PORT, CLIENT_API_PORT);
     }
 
     @AfterAll
-    public static void after() {
+    public static void after() throws Exception {
         System.out.println(" -------    CLEANUP TEST ------");
         if (vertx != null) {
             ProxyUtils.await(1000, myService.close());
             System.out.println(" -------    Cleaned up my-service ------");
-            ProxyUtils.await(1000, proxy.close());
+            proxy.close();
             System.out.println(" -------    Cleaned up proxy ------");
             ProxyUtils.await(1000, vertx.close());
             System.out.println(" -------    Cleaned up test vertx ------");
@@ -96,83 +92,49 @@ public class DevSpaceProxyTest {
     }
 
     @Test
-    public void testNothing() {
-
-    }
-
-    @Test
-    public void testProxy() {
-        // invoke service directly
-        given()
-                .when()
-                .port(SERVICE_PORT)
-                .get("/yo")
-                .then()
-                .statusCode(200)
-                .body(equalTo("my-service"));
-        given()
-                .when()
-                .port(SERVICE_PORT)
-                .body("hello")
-                .contentType("text/plain")
-                .post("/yo")
-                .then()
-                .statusCode(200)
-                .body(equalTo("my-service"));
-        // invoke local directly
-        /*
-         * given()
-         * .when()
-         * .get("/yo")
-         * .then()
-         * .statusCode(200)
-         * .body(equalTo("local"));
-         * given()
-         * .when()
-         * .body("hello")
-         * .contentType("text/plain")
-         * .post("/yo")
-         * .then()
-         * .statusCode(200)
-         * .body(equalTo("local"));
-         *
-         */
-        // invoke proxy
-        given()
-                .when()
-                .port(PROXY_PORT)
-                .get("/yo")
-                .then()
-                .statusCode(200)
-                .body(equalTo("my-service"));
-        given()
-                .when()
-                .port(PROXY_PORT)
-                .body("hello")
-                .contentType("text/plain")
-                .post("/yo")
-                .then()
-                .statusCode(200)
-                .body(equalTo("my-service"));
-    }
-
-    @Test
-    public void testGlobalSession() throws Exception {
+    public void testSession() throws Exception {
 
         try {
             PlaypenRecorder.startSession();
-            System.out.println("------------------ POST REQUEST BODY ---------------------");
+            System.out.println("-------------------- Query GET REQUEST --------------------");
             given()
                     .when()
                     .port(PROXY_PORT)
-                    .contentType("text/plain")
-                    .body("hello")
-                    .post("/hey")
+                    .get("/yo?user=john")
                     .then()
                     .statusCode(200)
                     .contentType(equalTo("text/plain"))
                     .body(equalTo("local"));
-            System.out.println("-------------------- GET REQUEST --------------------");
+            System.out.println("-------------------- Path GET REQUEST --------------------");
+            given()
+                    .when()
+                    .port(PROXY_PORT)
+                    .get("/users/john/stuff")
+                    .then()
+                    .statusCode(200)
+                    .contentType(equalTo("text/plain"))
+                    .body(equalTo("local"));
+            System.out.println("-------------------- Header GET REQUEST --------------------");
+            given()
+                    .when()
+                    .port(PROXY_PORT)
+                    .header(PlaypenServer.SESSION_HEADER, "john")
+                    .get("/stuff")
+                    .then()
+                    .statusCode(200)
+                    .contentType(equalTo("text/plain"))
+                    .body(equalTo("local"));
+            System.out.println("-------------------- Cookie GET REQUEST --------------------");
+            given()
+                    .when()
+                    .port(PROXY_PORT)
+                    .cookie(PlaypenServer.SESSION_HEADER, "john")
+                    .get("/stuff")
+                    .then()
+                    .statusCode(200)
+                    .contentType(equalTo("text/plain"))
+                    .body(equalTo("local"));
+            System.out.println("------------------ No session ---------------------");
             given()
                     .when()
                     .port(PROXY_PORT)
@@ -180,16 +142,32 @@ public class DevSpaceProxyTest {
                     .then()
                     .statusCode(200)
                     .contentType(equalTo("text/plain"))
-                    .body(equalTo("local"));
-            System.out.println("------------------ POST REQUEST NO BODY ---------------------");
+                    .body(equalTo("my-service"));
             given()
                     .when()
                     .port(PROXY_PORT)
-                    .post("/nobody")
+                    .get("/yo?user=jen")
                     .then()
                     .statusCode(200)
                     .contentType(equalTo("text/plain"))
-                    .body(equalTo("local"));
+                    .body(equalTo("my-service"));
+            given()
+                    .when()
+                    .port(PROXY_PORT)
+                    .get("/users/jen")
+                    .then()
+                    .statusCode(200)
+                    .contentType(equalTo("text/plain"))
+                    .body(equalTo("my-service"));
+            given()
+                    .when()
+                    .port(PROXY_PORT)
+                    .header(PlaypenServer.SESSION_HEADER, "jen")
+                    .get("/stuff")
+                    .then()
+                    .statusCode(200)
+                    .contentType(equalTo("text/plain"))
+                    .body(equalTo("my-service"));
         } finally {
             PlaypenRecorder.closeSession();
         }
@@ -198,6 +176,14 @@ public class DevSpaceProxyTest {
                 .when()
                 .port(PROXY_PORT)
                 .get("/yo")
+                .then()
+                .statusCode(200)
+                .contentType(equalTo("text/plain"))
+                .body(equalTo("my-service"));
+        given()
+                .when()
+                .port(PROXY_PORT)
+                .get("/yo?user=john")
                 .then()
                 .statusCode(200)
                 .contentType(equalTo("text/plain"))

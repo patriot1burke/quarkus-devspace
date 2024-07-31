@@ -37,14 +37,14 @@ public class PlaypenProcessor {
             PlaypenConfig config,
             PlaypenRecorder proxy) {
         if (config.uri.isPresent()) {
-            PlaypenConnectionConfig devspace = PlaypenConnectionConfig.fromUri(config.uri.get());
-            if (devspace.error != null) {
-                throw new RuntimeException(devspace.error);
+            PlaypenConnectionConfig playpen = PlaypenConnectionConfig.fromUri(config.uri.get());
+            if (playpen.error != null) {
+                throw new RuntimeException(playpen.error);
             }
             if (config.credentials.isPresent()) {
-                devspace.credentials = config.credentials.get();
+                playpen.credentials = config.credentials.get();
             }
-            proxy.init(vertx.getVertx(), shutdown, devspace, config.manualStart);
+            proxy.init(vertx.getVertx(), shutdown, playpen, config.manualStart);
         }
     }
 }

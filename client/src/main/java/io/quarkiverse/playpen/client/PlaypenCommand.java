@@ -6,7 +6,7 @@ import jakarta.inject.Inject;
 
 import picocli.CommandLine;
 
-@CommandLine.Command(name = "devspace")
+@CommandLine.Command(name = "playpen")
 public class PlaypenCommand implements Callable<Integer> {
 
     @CommandLine.Option(names = { "-p",
@@ -17,7 +17,7 @@ public class PlaypenCommand implements Callable<Integer> {
             "--credentials" }, description = "user:password or secret")
     private String credentials;
 
-    @CommandLine.Parameters(index = "0", description = "URI of devspace")
+    @CommandLine.Parameters(index = "0", description = "URI of playpen")
     private String uri;
 
     @Inject

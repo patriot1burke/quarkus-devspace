@@ -71,7 +71,7 @@ public abstract class AbstractPlaypenClient {
         if (sessionId == null)
             sessionId = PlaypenServer.GLOBAL_PROXY_SESSION;
         this.sessionId = sessionId;
-        log.debug("Start devspace session: " + sessionId);
+        log.debug("Start playpen session: " + sessionId);
         this.uri = PlaypenServer.CLIENT_API_PATH + "/connect?who=" + whoami + "&session=" + sessionId;
         if (queries != null) {
             for (String query : queries)
@@ -101,7 +101,7 @@ public abstract class AbstractPlaypenClient {
             forcedShutdown();
             return false;
         }
-        log.info("Devspace connection established...");
+        log.info("Playpen connection established...");
         this.connected = true;
         return true;
     }
@@ -143,9 +143,9 @@ public abstract class AbstractPlaypenClient {
                     if (challenged) {
                         String message = "";
                         if (wwwAuthenticate.startsWith("Basic")) {
-                            message = ". You must provide correct username and password in quarkus.devspace.credentials as <username>:<password>";
+                            message = ". You must provide correct username and password in quarkus.playpen.credentials as <username>:<password>";
                         } else if (wwwAuthenticate.startsWith("Secret")) {
-                            message = ". You must provide correct secret in quarkus.devspace.credentials";
+                            message = ". You must provide correct secret in quarkus.playpen.credentials";
                         }
                         logError("Could not authenticate connection" + message);
                         latch.countDown();

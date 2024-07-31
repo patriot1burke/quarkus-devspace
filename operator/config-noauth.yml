@@ -1,5 +1,5 @@
-apiVersion: "io.quarkus.devspace/v1"
-kind: DevspaceConfig
+apiVersion: "io.quarkiverse.playpen/v1"
+kind: PlaypenConfig
 metadata:
   name: global
   namespace: quarkus
@@ -8,4 +8,4 @@ spec:
   authType: none
   logLevel: DEBUG
   proxy:
-    image: "default-route-openshift-image-registry.apps-crc.testing/default/quarkus-devspace-proxy:latest"
+    image: "default-route-openshift-image-registry.apps-crc.testing/default/quarkus-playpen-proxy:latest"

@@ -19,7 +19,7 @@ public class PlaypenClientBean {
 
     public boolean start(int localPort, PlaypenConnectionConfig config) throws Exception {
         client = PlaypenClient.create(vertx)
-                .devspace(config)
+                .playpen(config)
                 .service("localhost", localPort, false)
                 .credentials(config.credentials)
                 .build();

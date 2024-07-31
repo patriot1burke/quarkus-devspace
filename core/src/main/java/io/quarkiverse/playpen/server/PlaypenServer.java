@@ -311,18 +311,18 @@ public class PlaypenServer {
         }
     }
 
-    public static final String API_PATH = "/_devspace/api";
-    public static final String CLIENT_API_PATH = "/_devspace/client";
-    public static final String GLOBAL_PROXY_SESSION = "_devspace_global";
-    public static final String SESSION_HEADER = "X-DevSpace-Session";
-    public static final String HEADER_FORWARD_PREFIX = "X-DevSpace-Fwd-";
-    public static final String STATUS_CODE_HEADER = "X-DevSpace-Status-Code";
-    public static final String METHOD_HEADER = "X-DevSpace-Method";
-    public static final String URI_HEADER = "X-DevSpace-Uri";
-    public static final String REQUEST_ID_HEADER = "X-DevSpace-Request-Id";
-    public static final String RESPONSE_LINK = "X-DevSpace-Response-Path";
-    public static final String POLL_LINK = "X-DevSpace-Poll-Path";
-    public static final String POLL_TIMEOUT = "X-DevSpace-Poll-Timeout";
+    public static final String API_PATH = "/_playpen/api";
+    public static final String CLIENT_API_PATH = "/_playpen/client";
+    public static final String GLOBAL_PROXY_SESSION = "_playpen_global";
+    public static final String SESSION_HEADER = "X-Playpen-Session";
+    public static final String HEADER_FORWARD_PREFIX = "X-Playpen-Fwd-";
+    public static final String STATUS_CODE_HEADER = "X-Playpen-Status-Code";
+    public static final String METHOD_HEADER = "X-Playpen-Method";
+    public static final String URI_HEADER = "X-Playpen-Uri";
+    public static final String REQUEST_ID_HEADER = "X-Playpen-Request-Id";
+    public static final String RESPONSE_LINK = "X-Playpen-Response-Path";
+    public static final String POLL_LINK = "X-Playpen-Poll-Path";
+    public static final String POLL_TIMEOUT = "X-Playpen-Poll-Timeout";
 
     protected long idleTimeout = 60000;
     protected long defaultPollTimeout = 5000;

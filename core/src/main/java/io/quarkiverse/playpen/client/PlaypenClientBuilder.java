@@ -13,12 +13,12 @@ public class PlaypenClientBuilder {
         this.vertx = vertx;
     }
 
-    public PlaypenClientBuilder devspace(String uri) {
+    public PlaypenClientBuilder playpen(String uri) {
         this.config = PlaypenConnectionConfig.fromUri(uri);
         return this;
     }
 
-    public PlaypenClientBuilder devspace(PlaypenConnectionConfig config) {
+    public PlaypenClientBuilder playpen(PlaypenConnectionConfig config) {
         this.config = config;
         return this;
     }

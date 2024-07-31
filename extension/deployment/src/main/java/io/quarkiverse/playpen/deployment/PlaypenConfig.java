@@ -6,10 +6,10 @@ import io.quarkus.runtime.annotations.ConfigItem;
 import io.quarkus.runtime.annotations.ConfigPhase;
 import io.quarkus.runtime.annotations.ConfigRoot;
 
-@ConfigRoot(name = "devspace", phase = ConfigPhase.BUILD_TIME)
+@ConfigRoot(name = "playpen", phase = ConfigPhase.BUILD_TIME)
 public class PlaypenConfig {
     /**
-     * Connection string for quarkus devspace.
+     * Connection string for quarkus playpen.
      *
      * Uri. Add query parameters to uri for additional config parameters
      *
@@ -18,9 +18,9 @@ public class PlaypenConfig {
      *
      * "who" is who you are. This is required.
      *
-     * By default, all request will be pushed locally from the devspace proxy.
+     * By default, all requests will be pushed locally from the proxy.
      * If you want to have a specific directed session, then use these parameters to define
-     * the session within the devspace config uri:
+     * the session within the playpen config uri:
      *
      * header - http header or cookie name that identifies the session id
      * query - query parameter name that identifies session id
@@ -40,7 +40,7 @@ public class PlaypenConfig {
     public Optional<String> credentials;
 
     /**
-     * If true, quarkus will not connect to devspace on boot. Connection would have
+     * If true, quarkus will not connect to playpen on boot. Connection would have
      * to be done manually from the recorder method.
      *
      * This is for internal testing purposes only.
