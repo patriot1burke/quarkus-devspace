@@ -331,6 +331,7 @@ public class PlaypenServer {
     protected ServiceProxy service;
     protected Vertx vertx;
     protected ProxySessionAuth auth = new NoAuth();
+    protected String clientPathPrefix;
 
     public void setTimerPeriod(long timerPeriod) {
         this.timerPeriod = timerPeriod;
@@ -348,6 +349,10 @@ public class PlaypenServer {
         this.auth = auth;
     }
 
+    public void setClientPathPrefix(String clientPathPrefix) {
+        this.clientPathPrefix = clientPathPrefix;
+    }
+
     public void init(Vertx vertx, Router proxyRouter, Router clientApiRouter, ServiceConfig config) {
         this.vertx = vertx;
         proxyRouter.route().handler((context) -> {
@@ -360,19 +365,23 @@ public class PlaypenServer {
             }
             context.next();
         });
+        String clientApiPath = CLIENT_API_PATH;
+        if (clientPathPrefix != null) {
+            clientApiPath = clientPathPrefix + CLIENT_API_PATH;
+        }
         // CLIENT API
-        clientApiRouter.route(CLIENT_API_PATH + "/version").method(HttpMethod.GET)
+        clientApiRouter.route(clientApiPath + "/version").method(HttpMethod.GET)
                 .handler((ctx) -> ctx.response().setStatusCode(200).putHeader("Content-Type", "text/plain").end(VERSION));
-        clientApiRouter.route(CLIENT_API_PATH + "/poll/session/:session").method(HttpMethod.POST).handler(this::pollNext);
-        clientApiRouter.route(CLIENT_API_PATH + "/connect").method(HttpMethod.POST).handler(this::clientConnect);
-        clientApiRouter.route(CLIENT_API_PATH + "/connect").method(HttpMethod.DELETE).handler(this::deleteClientConnection);
-        clientApiRouter.route(CLIENT_API_PATH + "/push/response/session/:session/request/:request")
+        clientApiRouter.route(clientApiPath + "/poll/session/:session").method(HttpMethod.POST).handler(this::pollNext);
+        clientApiRouter.route(clientApiPath + "/connect").method(HttpMethod.POST).handler(this::clientConnect);
+        clientApiRouter.route(clientApiPath + "/connect").method(HttpMethod.DELETE).handler(this::deleteClientConnection);
+        clientApiRouter.route(clientApiPath + "/push/response/session/:session/request/:request")
                 .method(HttpMethod.POST)
                 .handler(this::pushResponse);
-        clientApiRouter.route(CLIENT_API_PATH + "/push/response/session/:session/request/:request")
+        clientApiRouter.route(clientApiPath + "/push/response/session/:session/request/:request")
                 .method(HttpMethod.DELETE)
                 .handler(this::deletePushResponse);
-        clientApiRouter.route(CLIENT_API_PATH + "/*").handler(routingContext -> routingContext.fail(404));
+        clientApiRouter.route(clientApiPath + "/*").handler(routingContext -> routingContext.fail(404));
 
         // API routes
         proxyRouter.route(API_PATH + "/version").method(HttpMethod.GET)

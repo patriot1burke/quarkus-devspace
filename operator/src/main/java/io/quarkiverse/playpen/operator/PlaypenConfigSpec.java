@@ -1,10 +1,34 @@
 package io.quarkiverse.playpen.operator;
 
+import java.util.Map;
+
 public class PlaypenConfigSpec {
+    public static class PlaypenIngress {
+        private String baseHost;
+        private Map<String, String> annotations;
+
+        public Map<String, String> getAnnotations() {
+            return annotations;
+        }
+
+        public void setAnnotations(Map<String, String> annotations) {
+            this.annotations = annotations;
+        }
+
+        public String getBaseHost() {
+            return baseHost;
+        }
+
+        public void setBaseHost(String baseHost) {
+            this.baseHost = baseHost;
+        }
+    }
+
     private String authType;
     private Integer pollTimeoutSeconds;
     private Integer idleTimeoutSeconds;
     private String logLevel;
+    private PlaypenIngress ingress;
     /**
      * manual
      * ingress
@@ -46,6 +70,14 @@ public class PlaypenConfigSpec {
         this.pollTimeoutSeconds = pollTimeoutSeconds;
     }
 
+    public PlaypenIngress getIngress() {
+        return ingress;
+    }
+
+    public void setIngress(PlaypenIngress ingress) {
+        this.ingress = ingress;
+    }
+
     public AuthenticationType toAuthenticationType() {
         if (authType == null)
             return AuthenticationType.secret;
@@ -53,8 +85,12 @@ public class PlaypenConfigSpec {
     }
 
     public ExposePolicy toExposePolicy() {
-        if (exposePolicy == null)
+        if (exposePolicy == null && ingress != null) {
+            return ExposePolicy.ingress;
+        }
+        if (exposePolicy == null) {
             return ExposePolicy.defaultPolicy;
+        }
         return ExposePolicy.valueOf(exposePolicy);
     }
 

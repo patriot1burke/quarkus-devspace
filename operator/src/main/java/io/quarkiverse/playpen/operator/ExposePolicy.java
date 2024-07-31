@@ -5,5 +5,6 @@ public enum ExposePolicy {
     manual,
     route,
     secureRoute,
-    nodePort
+    nodePort,
+    ingress
 }

@@ -42,7 +42,7 @@
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-arc</artifactId>
         </dependency>
-<!--        <dependency>
+        <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-kubernetes</artifactId>
         </dependency>
@@ -50,17 +50,18 @@
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-minikube</artifactId>
         </dependency>
-    -->
+        <!--
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-openshift</artifactId>
         </dependency>
-        <!--
+        -->
+
           <dependency>
               <groupId>io.quarkus</groupId>
               <artifactId>quarkus-container-image-jib</artifactId>
           </dependency>
-          -->
+
         <dependency>
             <groupId>io.quarkiverse.playpen</groupId>
             <artifactId>quarkus-playpen</artifactId>

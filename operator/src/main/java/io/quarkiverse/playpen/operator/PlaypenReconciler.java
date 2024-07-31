@@ -15,6 +15,9 @@ import org.jboss.logging.Logger;
 import io.fabric8.kubernetes.api.model.*;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.fabric8.kubernetes.api.model.apps.DeploymentBuilder;
+import io.fabric8.kubernetes.api.model.networking.v1.Ingress;
+import io.fabric8.kubernetes.api.model.networking.v1.IngressBuilder;
+import io.fabric8.kubernetes.api.model.networking.v1.IngressFluent;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.dsl.MixedOperation;
 import io.fabric8.kubernetes.client.dsl.Resource;
@@ -90,6 +93,10 @@ public class PlaypenReconciler implements Reconciler<Playpen>, Cleaner<Playpen> 
         if (auth == AuthenticationType.secret) {
             container.addNewEnv().withName("SECRET").withNewValueFrom().withNewSecretKeyRef().withName(playpenSecret(primary))
                     .withKey("password").endSecretKeyRef().endValueFrom().endEnv();
+        }
+        if (config.toExposePolicy() == ExposePolicy.ingress && config.getIngress().getBaseHost() == null) {
+            // using a prefix
+            container.addNewEnv().withName("CLIENT_PATH_PREFIX").withValue(getIngressPathPrefix(primary)).endEnv();
         }
         String logLevel = config.getLogLevel();
         if (primary.getSpec() != null && primary.getSpec().getLogLevel() != null) {
@@ -215,8 +222,50 @@ public class PlaypenReconciler implements Reconciler<Playpen>, Cleaner<Playpen> 
                     .endSpec().build();
             client.adapt(OpenShiftClient.class).routes().resource(route).serverSideApply();
             primary.getStatus().getCleanup().add(0, new PlaypenStatus.CleanupResource("route", routeName));
+        } else if (exposePolicy == ExposePolicy.ingress) {
+            String ingressName = primary.getMetadata().getName() + "-playpen";
+            IngressFluent<IngressBuilder>.SpecNested<IngressBuilder> ingressSpec = new IngressBuilder()
+                    .withMetadata(PlaypenReconciler.createMetadataWithAnnotations(primary, ingressName,
+                            config.getIngress().getAnnotations()))
+                    .withNewSpec();
+
+            if (config.getIngress().getBaseHost() != null) {
+                ingressSpec.addNewRule()
+                        .withHost(ingressName + "-" + primary.getMetadata().getNamespace() + "."
+                                + config.getIngress().getBaseHost())
+                        .withNewHttp()
+                        .addNewPath()
+                        .withPath("/")
+                        .withPathType("Prefix")
+                        .withNewBackend()
+                        .withNewService()
+                        .withName(playpenServiceName(primary))
+                        .withNewPort()
+                        .withName("http")
+                        .endPort().endService().endBackend().endPath().endHttp().endRule();
+            } else {
+                ingressSpec.addNewRule()
+                        .withNewHttp()
+                        .addNewPath()
+                        .withPath(getIngressPathPrefix(primary))
+                        .withPathType("Prefix")
+                        .withNewBackend()
+                        .withNewService()
+                        .withName(playpenServiceName(primary))
+                        .withNewPort()
+                        .withName("http")
+                        .endPort().endService().endBackend().endPath().endHttp().endRule();
+            }
+
+            Ingress ingress = (Ingress) ingressSpec.endSpec().build();
+            client.network().v1().ingresses().resource(ingress).serverSideApply();
+            primary.getStatus().getCleanup().add(0, new PlaypenStatus.CleanupResource("ingress", ingressName));
         }
         primary.getStatus().getCleanup().add(0, new PlaypenStatus.CleanupResource("service", name));
+    }
+
+    private static String getIngressPathPrefix(Playpen primary) {
+        return "/" + primary.getMetadata().getName() + "-playpen" + "-" + primary.getMetadata().getNamespace();
     }
 
     private boolean isOpenshift() {
@@ -379,6 +428,15 @@ public class PlaypenReconciler implements Reconciler<Playpen>, Cleaner<Playpen> 
         return builder.withAnnotations(aMap).build();
     }
 
+    static ObjectMeta createMetadataWithAnnotations(Playpen resource, String name, Map<String, String> annotations) {
+        final var metadata = resource.getMetadata();
+        ObjectMetaBuilder builder = new ObjectMetaBuilder()
+                .withName(name)
+                .withNamespace(metadata.getNamespace())
+                .withLabels(Map.of("app.kubernetes.io/name", name));
+        return builder.withAnnotations(annotations).build();
+    }
+
     /**
      * pull spec from config and set up default values if value not set
      *
@@ -402,6 +460,11 @@ public class PlaypenReconciler implements Reconciler<Playpen>, Cleaner<Playpen> 
 
         PlaypenConfigSpec oldSpec = config.getSpec();
         spec.setLogLevel(oldSpec.getLogLevel());
+        if (spec.getIngress() != null) {
+            spec.setIngress(oldSpec.getIngress());
+        } else if (spec.toExposePolicy() == ExposePolicy.ingress) {
+            spec.setIngress(new PlaypenConfigSpec.PlaypenIngress());
+        }
         if (oldSpec.getPollTimeoutSeconds() != null)
             spec.setPollTimeoutSeconds(oldSpec.getPollTimeoutSeconds());
         if (oldSpec.getIdleTimeoutSeconds() != null)

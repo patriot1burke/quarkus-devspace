@@ -1,5 +1,7 @@
 package io.quarkiverse.playpen.server;
 
+import java.util.Optional;
+
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
@@ -60,6 +62,10 @@ public class QuarkusPlaypenServer {
     @ConfigProperty(name = "secret", defaultValue = "badsecret")
     protected String secret;
 
+    @Inject
+    @ConfigProperty(name = "client.path.prefix")
+    protected Optional<String> clientPathPrefix;
+
     protected PlaypenServer proxyServer;
     private HttpServer clientApi;
 
@@ -77,6 +83,10 @@ public class QuarkusPlaypenServer {
             proxyServer.setAuth(new SecretAuth(secret));
         } else {
             log.info("no auth");
+        }
+        if (clientPathPrefix.isPresent()) {
+            log.info("Client Path Prefix: " + clientPathPrefix.get());
+            proxyServer.setClientPathPrefix(clientPathPrefix.get());
         }
         ServiceConfig config = new ServiceConfig(serviceName, serviceHost, servicePort, serviceSsl);
         clientApi = vertx.createHttpServer();
