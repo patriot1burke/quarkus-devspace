@@ -94,7 +94,7 @@ public class PlaypenReconciler implements Reconciler<Playpen>, Cleaner<Playpen> 
             container.addNewEnv().withName("SECRET").withNewValueFrom().withNewSecretKeyRef().withName(playpenSecret(primary))
                     .withKey("password").endSecretKeyRef().endValueFrom().endEnv();
         }
-        if (config.toExposePolicy() == ExposePolicy.ingress && config.getIngress().getBaseHost() == null) {
+        if (config.toExposePolicy() == ExposePolicy.ingress && config.getIngress().getDomain() == null) {
             // using a prefix
             container.addNewEnv().withName("CLIENT_PATH_PREFIX").withValue(getIngressPathPrefix(primary)).endEnv();
         }
@@ -229,10 +229,10 @@ public class PlaypenReconciler implements Reconciler<Playpen>, Cleaner<Playpen> 
                             config.getIngress().getAnnotations()))
                     .withNewSpec();
 
-            if (config.getIngress().getBaseHost() != null) {
+            if (config.getIngress().getDomain() != null) {
                 ingressSpec.addNewRule()
                         .withHost(ingressName + "-" + primary.getMetadata().getNamespace() + "."
-                                + config.getIngress().getBaseHost())
+                                + config.getIngress().getDomain())
                         .withNewHttp()
                         .addNewPath()
                         .withPath("/")
@@ -245,6 +245,7 @@ public class PlaypenReconciler implements Reconciler<Playpen>, Cleaner<Playpen> 
                         .endPort().endService().endBackend().endPath().endHttp().endRule();
             } else {
                 ingressSpec.addNewRule()
+                        .withHost(config.getIngress().getHost())
                         .withNewHttp()
                         .addNewPath()
                         .withPath(getIngressPathPrefix(primary))
@@ -384,6 +385,9 @@ public class PlaypenReconciler implements Reconciler<Playpen>, Cleaner<Playpen> 
                 } else if (cleanup.getType().equals("deployment")) {
                     suppress(() -> client.apps().deployments().inNamespace(playpen.getMetadata().getNamespace())
                             .withName(cleanup.getName()).delete());
+                } else if (cleanup.getType().equals("ingress")) {
+                    suppress(() -> client.network().v1().ingresses().inNamespace(playpen.getMetadata().getNamespace())
+                            .withName(cleanup.getName()).delete());
                 }
             }
         }
@@ -460,9 +464,11 @@ public class PlaypenReconciler implements Reconciler<Playpen>, Cleaner<Playpen> 
 
         PlaypenConfigSpec oldSpec = config.getSpec();
         spec.setLogLevel(oldSpec.getLogLevel());
-        if (spec.getIngress() != null) {
+        if (oldSpec.getIngress() != null) {
+            spec.setExposePolicy(ExposePolicy.ingress.name());
             spec.setIngress(oldSpec.getIngress());
-        } else if (spec.toExposePolicy() == ExposePolicy.ingress) {
+        } else if (oldSpec.toExposePolicy() == ExposePolicy.ingress) {
+            spec.setExposePolicy(ExposePolicy.ingress.name());
             spec.setIngress(new PlaypenConfigSpec.PlaypenIngress());
         }
         if (oldSpec.getPollTimeoutSeconds() != null)

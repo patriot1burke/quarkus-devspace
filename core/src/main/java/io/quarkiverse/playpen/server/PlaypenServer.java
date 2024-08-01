@@ -115,7 +115,7 @@ public class PlaypenServer {
             });
             String requestId = session.queueResponse(proxiedCtx);
             pollResponse.putHeader(REQUEST_ID_HEADER, requestId);
-            String responsePath = CLIENT_API_PATH + "/push/response/session/" + session.sessionId + "/request/"
+            String responsePath = clientApiPath + "/push/response/session/" + session.sessionId + "/request/"
                     + requestId;
             pollResponse.putHeader(RESPONSE_LINK, responsePath);
             pollResponse.putHeader(METHOD_HEADER, proxiedRequest.method().toString());
@@ -332,6 +332,7 @@ public class PlaypenServer {
     protected Vertx vertx;
     protected ProxySessionAuth auth = new NoAuth();
     protected String clientPathPrefix;
+    protected String clientApiPath = CLIENT_API_PATH;
 
     public void setTimerPeriod(long timerPeriod) {
         this.timerPeriod = timerPeriod;
@@ -365,7 +366,6 @@ public class PlaypenServer {
             }
             context.next();
         });
-        String clientApiPath = CLIENT_API_PATH;
         if (clientPathPrefix != null) {
             clientApiPath = clientPathPrefix + CLIENT_API_PATH;
         }
@@ -594,7 +594,7 @@ public class PlaypenServer {
                 if (auth.authorized(ctx, session)) {
                     ctx.response().setStatusCode(204)
                             .putHeader(POLL_TIMEOUT, Long.toString(session.pollTimeout))
-                            .putHeader(POLL_LINK, CLIENT_API_PATH + "/poll/session/" + sessionId)
+                            .putHeader(POLL_LINK, clientApiPath + "/poll/session/" + sessionId)
                             .end();
                 }
             } else {
@@ -611,7 +611,7 @@ public class PlaypenServer {
                     auth.propagateToken(ctx, newSession);
                     ctx.response().setStatusCode(204)
                             .putHeader(POLL_TIMEOUT, Long.toString(newSession.pollTimeout))
-                            .putHeader(POLL_LINK, CLIENT_API_PATH + "/poll/session/" + finalSessionId)
+                            .putHeader(POLL_LINK, clientApiPath + "/poll/session/" + finalSessionId)
                             .end();
                 });
 
@@ -656,7 +656,7 @@ public class PlaypenServer {
         if (proxiedCtx == null) {
             log.error("Push response could not request " + requestId + " for service " + service.config.getName() + " session "
                     + sessionId);
-            ctx.response().putHeader(POLL_LINK, CLIENT_API_PATH + "/poll/session/" + sessionId);
+            ctx.response().putHeader(POLL_LINK, clientApiPath + "/poll/session/" + sessionId);
             PlaypenServer.error(ctx, 404, "Request " + requestId + " not found");
             return;
         }

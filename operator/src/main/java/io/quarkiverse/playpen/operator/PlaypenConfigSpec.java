@@ -4,7 +4,8 @@ import java.util.Map;
 
 public class PlaypenConfigSpec {
     public static class PlaypenIngress {
-        private String baseHost;
+        private String domain;
+        private String host;
         private Map<String, String> annotations;
 
         public Map<String, String> getAnnotations() {
@@ -15,12 +16,20 @@ public class PlaypenConfigSpec {
             this.annotations = annotations;
         }
 
-        public String getBaseHost() {
-            return baseHost;
+        public String getDomain() {
+            return domain;
         }
 
-        public void setBaseHost(String baseHost) {
-            this.baseHost = baseHost;
+        public void setDomain(String domain) {
+            this.domain = domain;
+        }
+
+        public String getHost() {
+            return host;
+        }
+
+        public void setHost(String host) {
+            this.host = host;
         }
     }
 

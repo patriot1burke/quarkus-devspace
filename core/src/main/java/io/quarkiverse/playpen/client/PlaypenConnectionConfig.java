@@ -17,6 +17,7 @@ public class PlaypenConnectionConfig {
     public boolean useClientIp;
     public String clientIp;
     public String credentials;
+    public String prefix;
 
     public static PlaypenConnectionConfig fromUri(String uriString) {
         PlaypenConnectionConfig playpen = new PlaypenConnectionConfig();
@@ -62,6 +63,9 @@ public class PlaypenConnectionConfig {
                 }
             }
         }
+        if (uri.getRawPath() != null) {
+            playpen.prefix = uri.getRawPath();
+        }
         if (playpen.who == null) {
             playpen.error = "playpen uri is missing who parameter";
         }
@@ -70,5 +74,24 @@ public class PlaypenConnectionConfig {
         }
         return playpen;
 
+    }
+
+    @Override
+    public String toString() {
+        return "PlaypenConnectionConfig{" +
+                "who='" + who + '\'' +
+                ", host='" + host + '\'' +
+                ", port=" + port +
+                ", ssl=" + ssl +
+                ", headers=" + headers +
+                ", paths=" + paths +
+                ", queries=" + queries +
+                ", session='" + session + '\'' +
+                ", error='" + error + '\'' +
+                ", useClientIp=" + useClientIp +
+                ", clientIp='" + clientIp + '\'' +
+                ", credentials='" + credentials + '\'' +
+                ", prefix='" + prefix + '\'' +
+                '}';
     }
 }

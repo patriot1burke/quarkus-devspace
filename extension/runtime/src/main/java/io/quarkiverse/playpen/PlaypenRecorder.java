@@ -44,7 +44,7 @@ public class PlaypenRecorder {
         client.setCredentials(config.credentials);
         client.setProxyClient(vertx.createHttpClient(options));
         client.vertx = vertx;
-        client.initUri(config.who, config.session, config.queries, config.paths, config.headers);
+        client.initUri(config);
         client.start();
     }
 

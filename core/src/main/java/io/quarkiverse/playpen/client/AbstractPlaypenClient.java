@@ -1,7 +1,6 @@
 package io.quarkiverse.playpen.client;
 
 import java.util.Base64;
-import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.TimeUnit;
@@ -35,6 +34,7 @@ public abstract class AbstractPlaypenClient {
     protected String tokenHeader = null;
     protected String authHeader;
     protected String credentials;
+    protected String clientApiPath = PlaypenServer.CLIENT_API_PATH;
 
     public void setPollTimeoutMillis(long pollTimeoutMillis) {
         pollTimeoutOverriden = true;
@@ -67,22 +67,22 @@ public abstract class AbstractPlaypenClient {
         this.authHeader = "Secret " + secret;
     }
 
-    public void initUri(String whoami, String sessionId, List<String> queries, List<String> paths, List<String> headers) {
-        if (sessionId == null)
-            sessionId = PlaypenServer.GLOBAL_PROXY_SESSION;
-        this.sessionId = sessionId;
+    public void initUri(PlaypenConnectionConfig config) {
+        this.sessionId = config.session == null ? PlaypenServer.GLOBAL_PROXY_SESSION : config.session;
         log.debug("Start playpen session: " + sessionId);
-        this.uri = PlaypenServer.CLIENT_API_PATH + "/connect?who=" + whoami + "&session=" + sessionId;
-        if (queries != null) {
-            for (String query : queries)
+        if (config.prefix != null)
+            clientApiPath = config.prefix + PlaypenServer.CLIENT_API_PATH;
+        this.uri = clientApiPath + "/connect?who=" + config.who + "&session=" + sessionId;
+        if (config.queries != null) {
+            for (String query : config.queries)
                 this.uri = this.uri + "&query=" + query;
         }
-        if (headers != null) {
-            for (String header : headers)
+        if (config.headers != null) {
+            for (String header : config.headers)
                 this.uri = this.uri + "&header=" + header;
         }
-        if (paths != null) {
-            for (String path : paths)
+        if (config.paths != null) {
+            for (String path : config.paths)
                 this.uri = this.uri + "&path=" + path;
         }
     }
@@ -111,6 +111,7 @@ public abstract class AbstractPlaypenClient {
         proxyClient.request(HttpMethod.POST, uri, event -> {
             log.debug("******* Connect request start");
             if (event.failed()) {
+                log.error("", event.cause());
                 logError("Could not connect to startSession: " + event.cause().getMessage());
                 latch.countDown();
                 return;
@@ -341,7 +342,7 @@ public abstract class AbstractPlaypenClient {
             // delete session
             CountDownLatch latch = new CountDownLatch(1);
             if (connected) {
-                String uri = PlaypenServer.CLIENT_API_PATH + "/connect?session=" + sessionId;
+                String uri = clientApiPath + "/connect?session=" + sessionId;
                 proxyClient.request(HttpMethod.DELETE, uri)
                         .onFailure(event -> {
                             log.error("Failed to delete sesssion on shutdown", event);

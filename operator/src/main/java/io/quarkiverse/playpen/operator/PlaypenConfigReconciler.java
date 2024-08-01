@@ -12,7 +12,6 @@ public class PlaypenConfigReconciler implements Reconciler<PlaypenConfig> {
     @Override
     public UpdateControl<PlaypenConfig> reconcile(PlaypenConfig resource, Context<PlaypenConfig> context)
             throws Exception {
-
         return UpdateControl.patchStatus(resource);
     }
 }

@@ -68,7 +68,7 @@ public class PlaypenClientBuilder {
         options.setDefaultHost(config.host);
         options.setDefaultPort(config.port);
         playpenClient.proxyClient = vertx.createHttpClient(options);
-        playpenClient.initUri(config.who, config.session, config.queries, config.paths, config.headers);
+        playpenClient.initUri(config);
         return playpenClient;
     }
 }
