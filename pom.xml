@@ -19,17 +19,19 @@
     <module>extension/runtime</module>
     <module>extension/deployment</module>
   </modules>
+  <scm>
+    <connection>scm:git:git@github.com:quarkiverse/quarkus-playpen.git</connection>
+    <developerConnection>scm:git:git@github.com:quarkiverse/quarkus-playpen.git</developerConnection>
+    <url>https://github.com/quarkiverse/quarkus-playpen</url>
+  </scm>
+
   <properties>
-    <compiler-plugin.version>3.11.0</compiler-plugin.version>
-    <maven.compiler.parameters>true</maven.compiler.parameters>
-    <maven.compiler.source>11</maven.compiler.source>
-    <maven.compiler.target>11</maven.compiler.target>
+    <compiler-plugin.version>3.13.0</compiler-plugin.version>
+    <maven.compiler.release>17</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-    <jandex-plugin.version>1.2.3</jandex-plugin.version>
-    <quarkus.version>3.11.0</quarkus.version>
-    <assertj.version>3.26.0</assertj.version>
-    <surefire-plugin.version>3.2.5</surefire-plugin.version>
+    <quarkus.version>3.13.0</quarkus.version>
+    <maven.compiler.parameters>true</maven.compiler.parameters>
   </properties>
   <dependencyManagement>
     <dependencies>
@@ -84,31 +86,9 @@
           <artifactId>maven-compiler-plugin</artifactId>
           <version>${compiler-plugin.version}</version>
         </plugin>
-        <plugin>
-          <artifactId>maven-surefire-plugin</artifactId>
-          <version>${surefire-plugin.version}</version>
-        </plugin>
-        <plugin>
-          <artifactId>maven-failsafe-plugin</artifactId>
-          <version>${surefire-plugin.version}</version>
-        </plugin>
-        <plugin>
-          <groupId>org.jboss.jandex</groupId>
-          <artifactId>jandex-maven-plugin</artifactId>
-          <version>${jandex-plugin.version}</version>
-          <executions>
-            <execution>
-              <id>make-index</id>
-              <goals>
-                <goal>jandex</goal>
-              </goals>
-            </execution>
-          </executions>
-        </plugin>
       </plugins>
     </pluginManagement>
   </build>
-  <!--
   <profiles>
     <profile>
       <id>it</id>
@@ -119,22 +99,10 @@
         </property>
       </activation>
       <modules>
-        <module>integration-tests</module>
-      </modules>
-    </profile>
-    <profile>
-      <id>quickstarts</id>
-      <activation>
-        <property>
-          <name>performRelease</name>
-          <value>!true</value>
-        </property>
-      </activation>
-      <modules>
-        <module>http-quickstart</module>
-        <module>websockets-quickstart</module>
+        <module>client</module>
+        <module>operator</module>
+        <module>proxy</module>
       </modules>
     </profile>
   </profiles>
-  -->
 </project>
